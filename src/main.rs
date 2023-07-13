@@ -54,6 +54,8 @@ fn get_all_sensors_fields(data: &serde_json::Value) -> SensorsFields {
         }
     }
 
+    // Удаляем поля сенсоров, которые в итоге вышли пустыми
+    sensors_fields.retain(|_, v| !v.is_empty());
     sensors_fields
 }
 
@@ -63,8 +65,14 @@ fn import_data_to_database(
     data: &serde_json::Value,
     sensors_fields: &SensorsFields,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    // Делаем HashMap массивов, чтобы меньше клонировать пришлось
+    let sensors_fields: HashMap<String, Vec<String>> = sensors_fields
+        .iter()
+        .map(|(k, v)| (k.clone(), v.iter().cloned().collect()))
+        .collect();
+
     // Создаём необходимые таблицы
-    for (sensor, fields) in sensors_fields {
+    for (sensor, fields) in &sensors_fields {
         // Получаем поля для таблицы и добавляем туда номер прибора и дату
         let mut fields: Vec<_> = fields.iter().map(|field| format!("{field} REAL")).collect();
         fields.push("serial TEXT".to_owned());
@@ -99,12 +107,17 @@ fn import_data_to_database(
         let uname = normalize_sensor_name(uname);
         let serial = entry["serial"].as_str().unwrap().to_owned();
 
+        // Если такого датчика мы не храним, то просто пропускаем
+        if !sensors_fields.contains_key(&uname) {
+            continue;
+        }
+
         // Получаем дату
         let date = entry["Date"].as_str().unwrap();
         let date = NaiveDateTime::parse_from_str(date, "%Y-%m-%d %H:%M:%S")?;
 
         // Получаем поля, которые нам необходимо импортировать
-        let mut fields: Vec<_> = sensors_fields[&uname].iter().cloned().collect();
+        let fields = &sensors_fields[&uname];
 
         // Получаем данные датчика
         let data = &entry["data"].as_object().unwrap();
@@ -115,15 +128,13 @@ fn import_data_to_database(
 
         // Заносим данные в БД
         // Для начала добавим serial и date в поля
-        fields.push("serial".to_owned());
-        fields.push("date".to_owned());
         fetched_fields.push(serial);
         fetched_fields.push(date.to_string());
 
         // Подготавливаем SQL запрос и выполняем его
-        let fields_places = (1..=fields.len()).map(|i| format!("?{i}")).join(",");
+        let fields_places = (1..=fields.len() + 2).map(|i| format!("?{i}")).join(",");
         let fields = fields.join(",").replace('-', "_");
-        let sql = format!("INSERT INTO {uname} ({fields}) VALUES ({fields_places})");
+        let sql = format!("INSERT INTO {uname} ({fields}, serial, date) VALUES ({fields_places})");
 
         // Делаем полученные поля пригодными для библиотеки
         let fetched_fields: Vec<_> = fetched_fields
