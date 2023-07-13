@@ -7,6 +7,8 @@ pkgs.devShell.mkShell {
     # Toolchain required for C + Rust binaries building
     binutils
     gcc
+    # Libraries required to build crates
+    sqlite
     # Nightly Rust toolchain
     bacon
     cargo-flamegraph
