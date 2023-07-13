@@ -12,7 +12,7 @@ use itertools::Itertools;
 type SensorsFields = HashMap<String, HashSet<String>>;
 
 /// Нормализация имени сенсора, чтобы сделать его пригодным для SQLite
-fn normalize_sensor_name(name: String) -> String {
+fn normalize_sensor_name(name: &str) -> String {
     name.replace(|ch: char| ch == '-' || ch.is_whitespace(), "_")
 }
 
@@ -23,39 +23,38 @@ fn get_all_sensors_fields(data: &serde_json::Value) -> SensorsFields {
     // Итерируем по каждому вхождению о каком-то датчике
     for (_, entry) in data.as_object().unwrap() {
         // Получаем название датчика
-        let uname = entry["uName"].as_str().unwrap().to_owned();
+        let uname = entry["uName"].as_str().unwrap();
         // Нормализуем название датчика для последующего использования (меняем пробелы и - на _)
         let uname = normalize_sensor_name(uname);
-
         // Получаем поля, связанные с этим датчиком
-        let fields: HashSet<String> = entry["data"].as_object().unwrap().keys().cloned().collect();
+        let fields: HashSet<&String> = entry["data"].as_object().unwrap().keys().collect();
 
         // Получаем уже сохранённые поля этого датчика, либо вставляем эти
-        let saved_fields = sensors_fields
-            .entry(uname.clone())
-            .or_insert(fields.clone());
+        let saved_fields = sensors_fields.entry(uname).or_insert({
+            let mut new_fields = fields.clone();
 
-        // Получаем пересечение полей, чтобы найти универсальный перечень полей
+            // Отфильтровываем ненужные поля
+            // TODO: make some UI to choose it on import stage, and filter out here
+            new_fields.retain(|field| {
+                !field.starts_with("system_")
+                    && !field.ends_with("_date")
+                    && !field.ends_with("_time")
+            });
+
+            new_fields
+        });
+
+        // Сохраняем лишь "пересечение" полей
         // (Спасибо Паскаль-11, за то что ты так уникальный)
-        let mut intersection: HashSet<String> =
-            saved_fields.intersection(&fields).cloned().collect();
-
-        // TODO: make some UI to choose it on import stage, and filter out here
-        intersection.retain(|field| !field.starts_with("system_"));
-        intersection.retain(|field| !field.ends_with("_date"));
-        intersection.retain(|field| !field.ends_with("_time"));
-
-        // Записываем новые поля, если нужно
-        if saved_fields.len() != intersection.len() {
-            sensors_fields
-                .entry(uname)
-                .and_modify(|fields| *fields = intersection);
-        }
+        saved_fields.retain(|field| fields.contains(field));
     }
 
     // Удаляем поля сенсоров, которые в итоге вышли пустыми
-    sensors_fields.retain(|_, v| !v.is_empty());
     sensors_fields
+        .into_iter()
+        .filter(|(_, v)| !v.is_empty())
+        .map(|(k, v)| (k, v.into_iter().cloned().collect()))
+        .collect()
 }
 
 // Возвращает SQL запрос на создание таблицы для датчика
@@ -112,7 +111,7 @@ fn import_data_to_database(
     // Итерируем по вхождениям данных
     for (_, entry) in data.as_object().unwrap().into_iter() {
         // Получаем название датчика и нормализуем его
-        let uname = entry["uName"].as_str().unwrap().to_owned();
+        let uname = entry["uName"].as_str().unwrap();
         let uname = normalize_sensor_name(uname);
 
         // Если такого датчика мы не храним, то просто пропускаем
