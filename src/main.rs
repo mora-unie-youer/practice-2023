@@ -1,10 +1,9 @@
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{HashMap, HashSet},
     fs::File,
     io::BufReader,
 };
 
-use chrono::NaiveDateTime;
 use itertools::Itertools;
 
 /// HashMap, хранящий все поля отдельных датчиков
@@ -59,9 +58,28 @@ fn get_all_sensors_fields(data: &serde_json::Value) -> SensorsFields {
     sensors_fields
 }
 
+// Возвращает SQL запрос на создание таблицы для датчика
+fn create_table_sql_query(sensor: &str, fields: &[String]) -> String {
+    // Получаем поля для таблицы и добавляем туда номер прибора и дату
+    let mut fields: Vec<_> = fields.iter().map(|field| format!("{field} REAL")).collect();
+    fields.push("serial TEXT".to_owned());
+    fields.push("date TEXT".to_owned());
+
+    // Подготавливаем SQL запрос на создание БД
+    let fields = fields.join(",").replace('-', "_");
+    format!("CREATE TABLE IF NOT EXISTS {sensor} (id INTEGER PRIMARY KEY, {fields}, UNIQUE(serial, date))")
+}
+
+// Возвращает SQL запрос на добавление данных в таблицу датчика
+fn insert_entry_sql_query(sensor: &str, fields: &[String]) -> String {
+    let fields_names = fields.join(",").replace('-', "_");
+    let fields_places = (1..=fields.len() + 2).map(|i| format!("?{i}")).join(",");
+    format!("INSERT INTO {sensor} ({fields_names},serial,date) VALUES ({fields_places})")
+}
+
 /// Из набора данных и набора полей датчиков сделать импорт данных в БД
 fn import_data_to_database(
-    database: &rusqlite::Connection,
+    database: &mut rusqlite::Connection,
     data: &serde_json::Value,
     sensors_fields: &SensorsFields,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -71,70 +89,49 @@ fn import_data_to_database(
         .map(|(k, v)| (k.clone(), v.iter().cloned().collect()))
         .collect();
 
+    // Здесь будут храниться SQL запросы для таблиц, чтобы не создавать SQL запрос каждый раз
+    let mut cached_sql_queries: HashMap<String, String> = HashMap::new();
+
+    // Начинаем транзакцию на создание таблиц
+    let create_table_tx = database.transaction()?;
     // Создаём необходимые таблицы
     for (sensor, fields) in &sensors_fields {
-        // Получаем поля для таблицы и добавляем туда номер прибора и дату
-        let mut fields: Vec<_> = fields.iter().map(|field| format!("{field} REAL")).collect();
-        fields.push("serial TEXT".to_owned());
-        fields.push("date TEXT".to_owned());
+        // Подготавливаем SQL запрос для создания строки
+        let sql = insert_entry_sql_query(sensor, fields);
+        cached_sql_queries.insert(sensor.clone(), sql);
 
-        // Подготавливаем SQL запрос
-        let fields = fields.join(",").replace('-', "_");
-        let sql = format!(
-            "CREATE TABLE IF NOT EXISTS {sensor} (id INTEGER PRIMARY KEY, {fields}, UNIQUE(serial, date))"
-        );
-        database.execute(&sql, ())?;
+        // Создаём таблицу
+        let sql = create_table_sql_query(sensor, fields);
+        create_table_tx.execute(&sql, ())?;
     }
+    // Заканчиваем транзакцию на создание таблиц
+    create_table_tx.commit()?;
 
-    // Сортируем данные по ID (иначе они в беспорядке)
-    // Этим же мы гарантируем, что вхождения будут добавлены по дате
-    // Думаю это может ускорить БД в обращениях
-    // NOTE: похоже это нифига не помогает, данные говно
-    let entries: BTreeMap<usize, &serde_json::Value> = data
-        .as_object()
-        .unwrap()
-        .into_iter()
-        .map(|(id, value)| (id.parse().unwrap(), value))
-        .collect();
-
-    // Начинаем транзакцию
-    database.execute("BEGIN", ())?;
-
+    // Начинаем транзакцию на добавление данных
+    let insert_entry_tx = database.transaction()?;
     // Итерируем по вхождениям данных
-    for (_, entry) in entries.into_iter() {
-        // Получаем название датчика и нормализуем его, а также его номер
+    for (_, entry) in data.as_object().unwrap().into_iter() {
+        // Получаем название датчика и нормализуем его
         let uname = entry["uName"].as_str().unwrap().to_owned();
         let uname = normalize_sensor_name(uname);
-        let serial = entry["serial"].as_str().unwrap().to_owned();
 
         // Если такого датчика мы не храним, то просто пропускаем
         if !sensors_fields.contains_key(&uname) {
             continue;
         }
 
-        // Получаем дату
-        let date = entry["Date"].as_str().unwrap();
-        let date = NaiveDateTime::parse_from_str(date, "%Y-%m-%d %H:%M:%S")?;
-
-        // Получаем поля, которые нам необходимо импортировать
-        let fields = &sensors_fields[&uname];
+        // Получаем номер датчика и дату
+        let serial = entry["serial"].as_str().unwrap().to_owned();
+        let date = entry["Date"].as_str().unwrap().to_owned();
 
         // Получаем данные датчика
         let data = &entry["data"].as_object().unwrap();
-        let mut fetched_fields: Vec<_> = fields
+        let mut fetched_fields: Vec<_> = sensors_fields[&uname]
             .iter()
             .map(|field| data[field].as_str().unwrap().to_owned())
             .collect();
-
-        // Заносим данные в БД
-        // Для начала добавим serial и date в поля
         fetched_fields.push(serial);
-        fetched_fields.push(date.to_string());
-
-        // Подготавливаем SQL запрос и выполняем его
-        let fields_places = (1..=fields.len() + 2).map(|i| format!("?{i}")).join(",");
-        let fields = fields.join(",").replace('-', "_");
-        let sql = format!("INSERT INTO {uname} ({fields}, serial, date) VALUES ({fields_places})");
+        fetched_fields.push(date);
 
         // Делаем полученные поля пригодными для библиотеки
         let fetched_fields: Vec<_> = fetched_fields
@@ -143,20 +140,20 @@ fn import_data_to_database(
             .collect();
 
         // Выполняем SQL запрос
-        match database.execute(&sql, fetched_fields.as_slice()) {
+        let mut statement = insert_entry_tx.prepare_cached(&cached_sql_queries[&uname])?;
+        match statement.execute(fetched_fields.as_slice()) {
             Ok(_) => (),
             Err(err) => println!("Не удалось загрузить строку данных по причине: {err}"),
         }
     }
-
-    // Заканчиваем транзакцию
-    database.execute("COMMIT", ())?;
+    // Заканчиваем транзакцию на добавление данных
+    insert_entry_tx.commit()?;
 
     Ok(())
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let database = rusqlite::Connection::open("db.sqlite")?;
+    let mut database = rusqlite::Connection::open("db.sqlite")?;
 
     // Загружаем 28 дней данных
     for i in 3..=30 {
@@ -165,7 +162,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let json: serde_json::Value = serde_json::from_reader(reader)?;
 
         let sensors_fields = get_all_sensors_fields(&json);
-        import_data_to_database(&database, &json, &sensors_fields)?;
+        import_data_to_database(&mut database, &json, &sensors_fields)?;
     }
 
     Ok(())
