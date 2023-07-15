@@ -57,7 +57,7 @@ fn get_all_sensors_fields(data: &serde_json::Value) -> SensorsFields {
         .collect()
 }
 
-// Возвращает SQL запрос на создание таблицы для датчика
+/// Возвращает SQL запрос на создание таблицы для датчика
 fn create_table_sql_query(sensor: &str, fields: &[String]) -> String {
     // Получаем поля для таблицы и добавляем туда номер прибора и дату
     let mut fields: Vec<_> = fields.iter().map(|field| format!("{field} REAL")).collect();
@@ -69,7 +69,7 @@ fn create_table_sql_query(sensor: &str, fields: &[String]) -> String {
     format!("CREATE TABLE IF NOT EXISTS {sensor} (id INTEGER PRIMARY KEY, {fields}, UNIQUE(serial, date))")
 }
 
-// Возвращает SQL запрос на добавление данных в таблицу датчика
+/// Возвращает SQL запрос на добавление данных в таблицу датчика
 fn insert_entry_sql_query(sensor: &str, fields: &[String]) -> String {
     let fields_names = fields.join(",").replace('-', "_");
     let fields_places = (1..=fields.len() + 2).map(|i| format!("?{i}")).join(",");
