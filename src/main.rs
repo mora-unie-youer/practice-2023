@@ -4,6 +4,7 @@ use std::{
     io::BufReader,
 };
 
+use chrono::NaiveDateTime;
 use itertools::Itertools;
 
 /// HashMap, хранящий все поля отдельных датчиков
@@ -62,7 +63,7 @@ fn create_table_sql_query(sensor: &str, fields: &[String]) -> String {
     // Получаем поля для таблицы и добавляем туда номер прибора и дату
     let mut fields: Vec<_> = fields.iter().map(|field| format!("{field} REAL")).collect();
     fields.push("serial TEXT".to_owned());
-    fields.push("date TEXT".to_owned());
+    fields.push("date INTEGER".to_owned());
 
     // Подготавливаем SQL запрос на создание БД
     let fields = fields.join(",").replace('-', "_");
@@ -122,6 +123,7 @@ fn import_data_to_database(
         // Получаем номер датчика и дату
         let serial = entry["serial"].as_str().unwrap().to_owned();
         let date = entry["Date"].as_str().unwrap().to_owned();
+        let date = NaiveDateTime::parse_from_str(&date, "%Y-%m-%d %H:%M:%S")?;
 
         // Получаем данные датчика
         let data = &entry["data"].as_object().unwrap();
@@ -130,7 +132,7 @@ fn import_data_to_database(
             .map(|field| data[field].as_str().unwrap().to_owned())
             .collect();
         fetched_fields.push(serial);
-        fetched_fields.push(date);
+        fetched_fields.push(date.timestamp().to_string());
 
         // Делаем полученные поля пригодными для библиотеки
         let fetched_fields: Vec<_> = fetched_fields
