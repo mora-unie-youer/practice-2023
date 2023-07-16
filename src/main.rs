@@ -24,12 +24,12 @@ use tui::{
 type SensorsFields = HashMap<String, HashSet<String>>;
 
 /// Нормализация имени сенсора, чтобы сделать его пригодным для SQLite
-fn normalize_sensor_name(name: &str) -> String {
+pub fn normalize_sensor_name(name: &str) -> String {
     name.replace(|ch: char| ch == '-' || ch.is_whitespace(), "_")
 }
 
 /// Из набора данных о датчиках получает поля каждого датчика
-fn get_all_sensors_fields(data: &serde_json::Value) -> SensorsFields {
+pub fn get_all_sensors_fields(data: &serde_json::Value) -> SensorsFields {
     let mut sensors_fields = HashMap::new();
 
     // Итерируем по каждому вхождению о каком-то датчике
@@ -70,7 +70,7 @@ fn get_all_sensors_fields(data: &serde_json::Value) -> SensorsFields {
 }
 
 /// Возвращает SQL запрос на создание таблицы для датчика
-fn create_table_sql_query(sensor: &str, fields: &[String]) -> String {
+pub fn create_table_sql_query(sensor: &str, fields: &[String]) -> String {
     // Получаем поля для таблицы и добавляем туда номер прибора и дату
     let mut fields: Vec<_> = fields.iter().map(|field| format!("{field} REAL")).collect();
     fields.push("serial TEXT".to_owned());
@@ -82,14 +82,14 @@ fn create_table_sql_query(sensor: &str, fields: &[String]) -> String {
 }
 
 /// Возвращает SQL запрос на добавление данных в таблицу датчика
-fn insert_entry_sql_query(sensor: &str, fields: &[String]) -> String {
+pub fn insert_entry_sql_query(sensor: &str, fields: &[String]) -> String {
     let fields_names = fields.join(",").replace('-', "_");
     let fields_places = (1..=fields.len() + 2).map(|i| format!("?{i}")).join(",");
     format!("INSERT INTO {sensor} ({fields_names},serial,date) VALUES ({fields_places})")
 }
 
-/// Из набора данных и набора полей датчиков сделать импорт данных в БД
-fn import_data_to_database(
+/// Импортирует из набора данных и набора полей датчиков данные в БД
+pub fn import_data_to_database(
     database: &mut rusqlite::Connection,
     data: &serde_json::Value,
     sensors_fields: &SensorsFields,
@@ -164,6 +164,23 @@ fn import_data_to_database(
     Ok(())
 }
 
+/// Импортирует данные из файла в БД
+pub fn import_file_to_database(
+    database: &mut rusqlite::Connection,
+    filename: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Открываем файл и читаем JSON
+    let file = File::open(filename)?;
+    let reader = BufReader::new(file);
+    let json: serde_json::Value = serde_json::from_reader(reader)?;
+
+    // Получаем поля сенсоров из данных и имортируем данные
+    let sensors_fields = get_all_sensors_fields(&json);
+    import_data_to_database(database, &json, &sensors_fields)?;
+
+    Ok(())
+}
+
 pub mod app;
 pub mod ui;
 
@@ -211,12 +228,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Загружаем 28 дней данных
     for i in 3..=30 {
-        let file = File::open(format!("data/2023-03-{i:0>2}.json"))?;
-        let reader = BufReader::new(file);
-        let json: serde_json::Value = serde_json::from_reader(reader)?;
-
-        let sensors_fields = get_all_sensors_fields(&json);
-        import_data_to_database(&mut database, &json, &sensors_fields)?;
+        // Импортируем данные из файла
+        import_file_to_database(&mut database, &format!("data/2023-03-{i:0>2}.json"))?;
     }
 
     // Получаем stdout для манипуляций с интерфесом
