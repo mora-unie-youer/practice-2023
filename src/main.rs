@@ -182,6 +182,7 @@ pub fn import_file_to_database(
 }
 
 pub mod app;
+pub mod filepicker;
 pub mod ui;
 
 /// Функция для запуска приложения в данном терминале
@@ -229,7 +230,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Загружаем 28 дней данных
     for i in 3..=30 {
         // Импортируем данные из файла
-        import_file_to_database(&mut database, &format!("data/2023-03-{i:0>2}.json"))?;
+        // import_file_to_database(&mut database, &format!("data/2023-03-{i:0>2}.json"))?;
     }
 
     // Получаем stdout для манипуляций с интерфесом
@@ -240,6 +241,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
+    terminal.hide_cursor()?;
 
     // Запускаем приложение с интерфейсом
     let mut app = App::default();
