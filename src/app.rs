@@ -39,8 +39,12 @@ impl App {
     /// Обрабатывает все события, связанные с нажатием клавиш в обычном режиме
     pub fn on_key_event_default(&mut self, event: KeyEvent) {
         match event.code {
+            KeyCode::BackTab => self.tabs.prev(),
+            KeyCode::Tab => self.tabs.next(),
+
             KeyCode::Char('q') if event.modifiers == KeyModifiers::CONTROL => self.running = false,
             KeyCode::Char('i') => self.state = AppState::FilePicker,
+
             _ => (),
         }
     }
@@ -84,5 +88,15 @@ impl Tabs {
             titles: vec!["Данные".into(), "График 1".into(), "График 2".into()],
             current: 0,
         }
+    }
+
+    /// Переключает на следующую вкладку
+    pub fn next(&mut self) {
+        self.current = (self.current + 1) % self.titles.len();
+    }
+
+    /// Переключает на предыдущую вкладку
+    pub fn prev(&mut self) {
+        self.current = (self.current + self.titles.len() - 1) % self.titles.len();
     }
 }
