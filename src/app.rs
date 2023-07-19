@@ -9,21 +9,20 @@ pub struct App {
     pub running: bool,
     pub state: AppState,
 
-    pub tabs: Tabs,
-}
+    pub database: rusqlite::Connection,
 
-impl Default for App {
-    fn default() -> Self {
-        Self::new()
-    }
+    pub tabs: Tabs,
 }
 
 impl App {
     /// Создаёт новое состояние приложения
-    pub fn new() -> Self {
+    pub fn new(database: rusqlite::Connection) -> Self {
         Self {
             running: true,
             state: AppState::default(),
+
+            database,
+
             tabs: Tabs::default(),
         }
     }

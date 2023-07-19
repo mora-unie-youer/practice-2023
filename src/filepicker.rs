@@ -26,17 +26,22 @@ impl App {
         Ok(())
     }
 
+    fn close_filepicker(&mut self) {
+        self.state = AppState::Default;
+    }
+
     /// Обрабатывает все события, связанные с нажатием клавиш в режиме выбора файла
     pub fn on_key_event_filepicker(&mut self, event: KeyEvent) -> std::io::Result<()> {
         // Получаем состояние, для того чтобы поменять что-нибудь
         let state = self.state.file_picker_state().unwrap();
 
         match event.code {
-            KeyCode::Esc | KeyCode::Char('q') => self.state = AppState::Default,
+            KeyCode::Esc | KeyCode::Char('q') => self.close_filepicker(),
             KeyCode::Up => state.prev_file(),
             KeyCode::Down => state.next_file(),
             KeyCode::Left => state.goto_parent_directory(),
-            KeyCode::Right => self.try_import_file()?,
+            KeyCode::Right => self.try_import_file(),
+            KeyCode::Char('I') => self.try_import_directory(),
             _ => (),
         }
 
@@ -44,20 +49,48 @@ impl App {
     }
 
     /// Пытается открыть файл, и если он был открыт -> импортирует данные в БД
-    fn try_import_file(&mut self) -> std::io::Result<()> {
+    fn try_import_file(&mut self) {
         // Получаем состояние, для того чтобы открыть файл/директорию
         let state = self.state.file_picker_state().unwrap();
 
         // Пытаемся открыть файл. Если директория, то выходим из функции
-        let filename = match state.open_file_or_directory() {
-            Some(filename) => filename,
-            None => return Ok(()),
+        let file_path = match state.open_file_or_directory() {
+            Some(path) => path,
+            None => return,
         };
 
-        // TODO: делаем импорт
-        dbg!(filename);
+        // Импортируем. Если имеем ошибку, переходим к следующему
+        let _ = self.import_file_to_database(file_path);
 
-        Ok(())
+        // Закрываем выбор файлов, т.к. мы закончили процесс
+        self.close_filepicker();
+    }
+
+    /// Пытается импортировать данные из всех файлов в данной директории
+    fn try_import_directory(&mut self) {
+        // Получаем состояние, для того чтобы открыть файл/директорию
+        let state = self.state.file_picker_state().unwrap();
+
+        // Получаем директорию, в которой мы находимся
+        let current_directory = state.current_directory.clone();
+
+        // Читаем файлы из директории и импортируем их
+        let items = state.directory_contents.clone();
+        for item in items {
+            // Если элемент - директория, пропускаем. Иначе -> импортируем
+            match item {
+                FilePickerItem::Directory(_) => continue,
+                FilePickerItem::File(filename) => {
+                    // Собираем путь до файла
+                    let file_path = current_directory.join(filename);
+                    // Импортируем. Если имеем ошибку, переходим к следующему
+                    let _ = self.import_file_to_database(file_path);
+                }
+            }
+        }
+
+        // Закрываем выбор файлов, т.к. мы закончили процесс
+        self.close_filepicker();
     }
 }
 
@@ -122,7 +155,7 @@ impl FilePickerState {
     }
 
     /// Открывает файл или переходит в директорию
-    fn open_file_or_directory(&mut self) -> Option<String> {
+    fn open_file_or_directory(&mut self) -> Option<PathBuf> {
         // Проверяем, есть ли у нас вообще файлы/директории
         if self.directory_contents.is_empty() {
             return None;
@@ -130,7 +163,7 @@ impl FilePickerState {
 
         // Проверяем то, на чём у нас сейчас курсор
         match &self.directory_contents[self.selection_index] {
-            FilePickerItem::File(filename) => Some(filename.clone()),
+            FilePickerItem::File(filename) => Some(self.current_directory.join(filename)),
             FilePickerItem::Directory(dirname) => {
                 self.goto_child_directory(dirname.clone());
                 None
@@ -238,7 +271,7 @@ impl FilePickerState {
 }
 
 /// Определяет одну элемент директории
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum FilePickerItem {
     File(String),
     Directory(String),
