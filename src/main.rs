@@ -34,6 +34,12 @@ fn run_application<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> std
         // Рисуем интерфейс в данном нам фрейме
         terminal.draw(|frame| ui::draw(frame, app))?;
 
+        // Проверяем, прошёл ли один тик
+        if last_tick.elapsed() >= TICK_RATE {
+            last_tick = Instant::now();
+            app.tick();
+        }
+
         // Проверяем инпут с клавиатуры
         let event_timeout = TICK_RATE
             .checked_sub(last_tick.elapsed())
@@ -48,11 +54,6 @@ fn run_application<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> std
                 // Все остальные инпуты меня пока не интересуют
                 _ => (),
             }
-        }
-
-        // Проверяем, прошёл ли один тик
-        if last_tick.elapsed() >= TICK_RATE {
-            last_tick = Instant::now();
         }
     }
 }

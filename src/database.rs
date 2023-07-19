@@ -3,6 +3,8 @@ use std::{
     fs::File,
     io::BufReader,
     path::PathBuf,
+    sync::{Arc, Mutex},
+    thread::JoinHandle,
 };
 
 use chrono::NaiveDateTime;
@@ -82,11 +84,14 @@ fn insert_entry_sql_query(sensor: &str, fields: &[String]) -> String {
 
 impl App {
     /// Импортирует из набора данных и набора полей датчиков данные в БД
-    pub fn import_data_to_database(
-        &mut self,
+    fn import_data_to_database(
+        database: Arc<Mutex<rusqlite::Connection>>,
         data: &serde_json::Value,
         sensors_fields: &SensorsFields,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        // Получаем соединение с базой данных
+        let mut database = database.lock().unwrap();
+
         // Делаем HashMap массивов, чтобы меньше клонировать пришлось
         let sensors_fields: HashMap<String, Vec<String>> = sensors_fields
             .iter()
@@ -97,7 +102,7 @@ impl App {
         let mut cached_sql_queries: HashMap<String, String> = HashMap::new();
 
         // Начинаем транзакцию на создание таблиц
-        let create_table_tx = self.database.transaction()?;
+        let create_table_tx = database.transaction()?;
         // Создаём необходимые таблицы
         for (sensor, fields) in &sensors_fields {
             // Подготавливаем SQL запрос для создания строки
@@ -112,7 +117,7 @@ impl App {
         create_table_tx.commit()?;
 
         // Начинаем транзакцию на добавление данных
-        let insert_entry_tx = self.database.transaction()?;
+        let insert_entry_tx = database.transaction()?;
         // Итерируем по вхождениям данных
         for (_, entry) in data.as_object().unwrap().into_iter() {
             // Получаем название датчика и нормализуем его
@@ -158,19 +163,21 @@ impl App {
     }
 
     /// Импортирует данные из файла в БД
-    pub fn import_file_to_database(
-        &mut self,
-        file_path: PathBuf,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        // Открываем файл и читаем JSON
-        let file = File::open(file_path)?;
-        let reader = BufReader::new(file);
-        let json: serde_json::Value = serde_json::from_reader(reader)?;
+    pub fn import_file_to_database(&self, file_path: PathBuf) -> JoinHandle<Result<(), ()>> {
+        // Делаем "копию" соединения с базой данных
+        let database = self.database.clone();
 
-        // Получаем поля сенсоров из данных и имортируем данные
-        let sensors_fields = get_all_sensors_fields(&json);
-        self.import_data_to_database(&json, &sensors_fields)?;
+        std::thread::spawn(|| {
+            // Открываем файл и читаем JSON
+            let file = File::open(file_path).map_err(|_| ())?;
+            let reader = BufReader::new(file);
+            let json: serde_json::Value = serde_json::from_reader(reader).map_err(|_| ())?;
 
-        Ok(())
+            // Получаем поля сенсоров из данных и имортируем данные
+            let sensors_fields = get_all_sensors_fields(&json);
+            Self::import_data_to_database(database, &json, &sensors_fields).map_err(|_| ())?;
+
+            Ok(())
+        })
     }
 }

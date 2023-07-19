@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent};
 
 use crate::filepicker::FilePickerState;
@@ -6,11 +8,16 @@ use crate::filepicker::FilePickerState;
 /// Используется везде, где только можно
 #[derive(Debug)]
 pub struct App {
+    /// Определяет, работает ли сейчас программа
     pub running: bool,
+
+    /// Определяет, в каком режиме сейчас находится программа
     pub state: AppState,
 
-    pub database: rusqlite::Connection,
+    /// Соединение с базой данных
+    pub database: Arc<Mutex<rusqlite::Connection>>,
 
+    /// Определяет вкладки, открытые в приложении
     pub tabs: Tabs,
 }
 
@@ -21,14 +28,21 @@ impl App {
             running: true,
             state: AppState::default(),
 
-            database,
+            database: Arc::new(Mutex::new(database)),
 
             tabs: Tabs::default(),
         }
     }
 
     /// Выполняет один тик обновления в состоянии приложения
-    pub fn tick(&mut self) {}
+    pub fn tick(&mut self) {
+        match self.state {
+            AppState::Default => self.tick_default(),
+            AppState::FilePicker(_) => self.tick_filepicker(),
+        }
+    }
+
+    fn tick_default(&mut self) {}
 
     /// Обрабатывает все события, связанные с нажатием клавиш
     pub fn on_key_event(&mut self, event: KeyEvent) -> std::io::Result<()> {
@@ -88,7 +102,10 @@ impl AppState {
 /// Используется для определения того, в какой вкладке мы находимся, и что должны отображать
 #[derive(Debug)]
 pub struct Tabs {
+    /// Содержит заголовки вкладок
     pub titles: Vec<String>,
+
+    /// Содержит индекс активной вкладки
     pub current: usize,
 }
 

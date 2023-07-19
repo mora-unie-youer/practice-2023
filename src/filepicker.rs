@@ -1,9 +1,9 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, thread::JoinHandle};
 
 use crossterm::event::{KeyCode, KeyEvent};
 use tui::{
     backend::Backend,
-    layout::Rect,
+    layout::{Alignment, Rect},
     style::{Color, Modifier, Style},
     text::{Span, Spans, Text},
     widgets::{Block, Borders, Paragraph},
@@ -26,8 +26,27 @@ impl App {
         Ok(())
     }
 
+    /// Закрывает окно выбора файла
     fn close_filepicker(&mut self) {
         self.state = AppState::Default;
+    }
+
+    /// Выполняет один тик в режиме выбора файла
+    pub fn tick_filepicker(&mut self) {
+        // Получаем состояние выбора файла
+        let state = self.state.file_picker_state().unwrap();
+
+        // Если происходит процесс импорта
+        if !state.import_threads.is_empty() {
+            // Ждём, пока все потоки выполнятся...
+            while let Some(thread) = state.import_threads.pop() {
+                // Ждём отдельный поток
+                let _ = thread.join().unwrap();
+            }
+
+            // После того, как дождались - можем закрыть выбор файла
+            self.close_filepicker();
+        }
     }
 
     /// Обрабатывает все события, связанные с нажатием клавиш в режиме выбора файла
@@ -60,10 +79,11 @@ impl App {
         };
 
         // Импортируем. Если имеем ошибку, переходим к следующему
-        let _ = self.import_file_to_database(file_path);
+        let thread = self.import_file_to_database(file_path);
 
-        // Закрываем выбор файлов, т.к. мы закончили процесс
-        self.close_filepicker();
+        // Добавляем поток импорта в список для ожидания
+        let state = self.state.file_picker_state().unwrap();
+        state.import_threads.push(thread);
     }
 
     /// Пытается импортировать данные из всех файлов в данной директории
@@ -83,14 +103,16 @@ impl App {
                 FilePickerItem::File(filename) => {
                     // Собираем путь до файла
                     let file_path = current_directory.join(filename);
+
                     // Импортируем. Если имеем ошибку, переходим к следующему
-                    let _ = self.import_file_to_database(file_path);
+                    let thread = self.import_file_to_database(file_path);
+
+                    // Добавляем поток импорта в список для ожидания
+                    let state = self.state.file_picker_state().unwrap();
+                    state.import_threads.push(thread);
                 }
             }
         }
-
-        // Закрываем выбор файлов, т.к. мы закончили процесс
-        self.close_filepicker();
     }
 }
 
@@ -98,7 +120,7 @@ impl App {
 #[derive(Debug)]
 pub struct FilePickerState {
     /// Сохраняет ту директорию, в которой мы сейчас находимся
-    pub current_directory: PathBuf,
+    current_directory: PathBuf,
 
     /// Сохраняет содержимое директории, в которой мы находимся
     directory_contents: Vec<FilePickerItem>,
@@ -108,6 +130,9 @@ pub struct FilePickerState {
 
     /// Сохраняет отступ в списке файлов
     offset: usize,
+
+    /// Сохраняет потоки импорта данных
+    import_threads: Vec<JoinHandle<Result<(), ()>>>,
 }
 
 impl FilePickerState {
@@ -122,6 +147,7 @@ impl FilePickerState {
             directory_contents: Vec::new(),
             selection_index: 0,
             offset: 0,
+            import_threads: Vec::new(),
         };
 
         // Пополняем состояние файлами и директориями
@@ -294,6 +320,22 @@ pub fn draw_file_picker<B: Backend>(frame: &mut Frame<B>, app: &mut App, area: R
 
     // Рендерим список файлов
     draw_file_list(frame, state, popup_area);
+
+    // Если у нас сейчас происходит момент импорта файла, отображаем окошко и ждём.
+    if !state.import_threads.is_empty() {
+        // Выделяем новую область под окошко
+        let wait_popup_area = get_popup_area(30, 15, area);
+
+        // Делаем блок и рендерим его
+        let block = Block::default().borders(Borders::ALL);
+        frame.render_widget(block, wait_popup_area);
+
+        // Делаем виджет для рендера внутри
+        let inner_area = get_inner_block_area(wait_popup_area);
+        let text = "Данные импортируются, подождите...";
+        let paragraph = Paragraph::new(Text::from(text)).alignment(Alignment::Center);
+        frame.render_widget(paragraph, inner_area);
+    }
 }
 
 fn draw_file_list<B: Backend>(frame: &mut Frame<B>, state: &mut FilePickerState, area: Rect) {
