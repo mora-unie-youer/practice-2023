@@ -43,6 +43,7 @@ fn get_all_sensors_fields(data: &serde_json::Value) -> SensorsFields {
             // TODO: make some UI to choose it on import stage, and filter out here
             new_fields.retain(|field| {
                 !field.starts_with("system_")
+                    && !field.starts_with("NTP_")
                     && !field.ends_with("_date")
                     && !field.ends_with("_time")
             });
