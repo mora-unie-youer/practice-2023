@@ -16,6 +16,7 @@ use tui::{
 pub mod app;
 pub mod database;
 pub mod filepicker;
+pub mod sensors_tree;
 pub mod ui;
 pub mod utils;
 
@@ -73,7 +74,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     terminal.hide_cursor()?;
 
     // Запускаем приложение с интерфейсом
-    let mut app = App::new(database);
+    let mut app = App::new(database)?;
     let result = run_application(&mut terminal, &mut app);
 
     // Восстанавливаем терминал до рабочего состояния

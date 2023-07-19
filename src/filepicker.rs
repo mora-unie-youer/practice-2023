@@ -15,7 +15,7 @@ use crate::{
     utils::{get_inner_block_area, get_popup_area},
 };
 
-impl App {
+impl App<'_> {
     /// Открывает окно выбора файла
     pub fn open_filepicker(&mut self) -> std::io::Result<()> {
         // Подготавливаем состояние выбора файла
@@ -46,6 +46,10 @@ impl App {
 
             // После того, как дождались - можем закрыть выбор файла
             self.close_filepicker();
+
+            // Также мы должны обновить дерево датчиков
+            // TODO: на всякий случай нужна обработка ошибок здесь
+            let _ = self.update_sensors_tree();
         }
     }
 

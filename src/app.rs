@@ -1,13 +1,14 @@
 use std::sync::{Arc, Mutex};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent};
+use tui_tree_widget::TreeItem;
 
-use crate::filepicker::FilePickerState;
+use crate::{filepicker::FilePickerState, sensors_tree::SensorsTree};
 
 /// Структура, определяющая состояние приложения
 /// Используется везде, где только можно
 #[derive(Debug)]
-pub struct App {
+pub struct App<'a> {
     /// Определяет, работает ли сейчас программа
     pub running: bool,
 
@@ -17,21 +18,54 @@ pub struct App {
     /// Соединение с базой данных
     pub database: Arc<Mutex<rusqlite::Connection>>,
 
+    /// Определяет дерево сенсоров на главной вкладке
+    pub sensors_tree: SensorsTree<'a>,
+
     /// Определяет вкладки, открытые в приложении
     pub tabs: Tabs,
 }
 
-impl App {
+impl<'a> App<'a> {
     /// Создаёт новое состояние приложения
-    pub fn new(database: rusqlite::Connection) -> Self {
-        Self {
+    pub fn new(database: rusqlite::Connection) -> Result<Self, Box<dyn std::error::Error>> {
+        // Делаем базовый экземпляр состояния приложения
+        let mut app = Self {
             running: true,
             state: AppState::default(),
 
             database: Arc::new(Mutex::new(database)),
+            sensors_tree: SensorsTree::default(),
 
             tabs: Tabs::default(),
-        }
+        };
+
+        // Подготавливаем дерево сенсоров
+        app.update_sensors_tree()?;
+
+        Ok(app)
+    }
+
+    /// Возвращает массив элементов для дерева полей сенсора
+    pub fn update_sensors_tree(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        // Получаем поля сенсоров для дерева
+        let sensors_fields = self.get_sensors_fields()?;
+
+        // Преобразуем поля в дерево
+        let sensors_tree = sensors_fields
+            .into_iter()
+            .map(|(name, fields)| {
+                TreeItem::new(
+                    name,
+                    fields
+                        .into_iter()
+                        .map(TreeItem::new_leaf)
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .collect();
+
+        self.sensors_tree.items = sensors_tree;
+        Ok(())
     }
 
     /// Выполняет один тик обновления в состоянии приложения
@@ -42,6 +76,7 @@ impl App {
         }
     }
 
+    /// Обрабатывает тик в обычном режиме приложения
     fn tick_default(&mut self) {}
 
     /// Обрабатывает все события, связанные с нажатием клавиш
@@ -62,6 +97,11 @@ impl App {
 
             KeyCode::Char('q') if event.modifiers == KeyModifiers::CONTROL => self.running = false,
             KeyCode::Char('i') => self.open_filepicker()?,
+
+            KeyCode::Up => self.sensors_tree.up(),
+            KeyCode::Down => self.sensors_tree.down(),
+            KeyCode::Left => self.sensors_tree.left(),
+            KeyCode::Right => self.sensors_tree.right(),
 
             _ => (),
         }

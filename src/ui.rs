@@ -1,11 +1,12 @@
 use tui::{
     backend::Backend,
     layout::{Alignment, Constraint, Layout, Rect},
-    style::{Color, Style},
+    style::{Color, Modifier, Style},
     text::{Span, Spans},
     widgets::{Block, Borders, Paragraph, Tabs},
     Frame,
 };
+use tui_tree_widget::Tree;
 
 use crate::{
     app::{App, AppState},
@@ -52,10 +53,22 @@ pub fn draw<B: Backend>(frame: &mut Frame<B>, app: &mut App) {
 }
 
 // Рендерит вкладку с данными
-fn draw_data_tab<B: Backend>(frame: &mut Frame<B>, _app: &mut App, area: Rect) {
-    let text = "Здесь должны быть данные";
-    let paragraph = Paragraph::new(vec![Spans::from(text)]);
-    frame.render_widget(paragraph, area);
+fn draw_data_tab<B: Backend>(frame: &mut Frame<B>, app: &mut App, area: Rect) {
+    // Если у нас есть данные датчиков, рисуем дерево
+    if !app.sensors_tree.items.is_empty() {
+        let tree = Tree::new(app.sensors_tree.items.clone())
+            .highlight_style(
+                Style::default()
+                    .fg(Color::Indexed(2))
+                    .add_modifier(Modifier::BOLD),
+            )
+            .highlight_symbol(">> ");
+        frame.render_stateful_widget(tree, area, &mut app.sensors_tree.state);
+    } else {
+        let text = "--- Данные датчиков не импортированы ---";
+        let paragraph = Paragraph::new(vec![Spans::from(text)]);
+        frame.render_widget(paragraph, area);
+    }
 }
 
 // Рендерит вкладку с графиком
