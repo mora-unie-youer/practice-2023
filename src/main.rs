@@ -184,6 +184,7 @@ pub fn import_file_to_database(
 pub mod app;
 pub mod filepicker;
 pub mod ui;
+pub mod utils;
 
 /// Функция для запуска приложения в данном терминале
 fn run_application<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> std::io::Result<()> {
@@ -208,9 +209,9 @@ fn run_application<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> std
             // Проверяем вид инпута
             match crossterm::event::read()? {
                 // Если это ввод с клавиатуры - обрабатываем
-                Event::Key(event) => app.on_key_event(event),
+                Event::Key(event) => app.on_key_event(event)?,
                 // Если это ввод с мыши - обрабатываем
-                Event::Mouse(event) => app.on_mouse_event(event),
+                Event::Mouse(event) => app.on_mouse_event(event)?,
                 // Все остальные инпуты меня пока не интересуют
                 _ => (),
             }
@@ -225,13 +226,13 @@ fn run_application<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> std
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Запускаем SQLite базу данных
-    let mut database = rusqlite::Connection::open("db.sqlite")?;
+    // let mut database = rusqlite::Connection::open("db.sqlite")?;
 
     // Загружаем 28 дней данных
-    for i in 3..=30 {
-        // Импортируем данные из файла
-        // import_file_to_database(&mut database, &format!("data/2023-03-{i:0>2}.json"))?;
-    }
+    // for i in 3..=30 {
+    // Импортируем данные из файла
+    // import_file_to_database(&mut database, &format!("data/2023-03-{i:0>2}.json"))?;
+    // }
 
     // Получаем stdout для манипуляций с интерфесом
     let mut stdout = std::io::stdout();

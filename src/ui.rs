@@ -46,20 +46,20 @@ pub fn draw<B: Backend>(frame: &mut Frame<B>, app: &mut App) {
 
     // Если у нас необычный режим работы программы, мы должны зарендерить это "особенное"
     match app.state {
-        AppState::FilePicker => draw_file_picker(frame, app, main_area),
+        AppState::FilePicker(_) => draw_file_picker(frame, app, main_area),
         AppState::Default => (),
     }
 }
 
 // Рендерит вкладку с данными
-fn draw_data_tab<B: Backend>(frame: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_data_tab<B: Backend>(frame: &mut Frame<B>, _app: &mut App, area: Rect) {
     let text = "Здесь должны быть данные";
     let paragraph = Paragraph::new(vec![Spans::from(text)]);
     frame.render_widget(paragraph, area);
 }
 
 // Рендерит вкладку с графиком
-fn draw_graph_tab<B: Backend>(frame: &mut Frame<B>, app: &mut App, area: Rect) {
+fn draw_graph_tab<B: Backend>(frame: &mut Frame<B>, _app: &mut App, area: Rect) {
     let text = "Здесь должен быть график";
     let paragraph = Paragraph::new(vec![Spans::from(text)]);
     frame.render_widget(paragraph, area);
