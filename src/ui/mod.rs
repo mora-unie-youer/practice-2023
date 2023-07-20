@@ -9,13 +9,10 @@ use tui::{
 
 use crate::{
     app::state::{App, AppState},
-    filepicker::ui::draw_file_picker,
+    graph::ui::draw_graph_tab,
+    sensors::ui::draw_sensors_tab,
 };
 
-use self::{graph_tab::draw_graph_tab, sensors_tab::draw_sensors_tab};
-
-pub mod graph_tab;
-pub mod sensors_tab;
 pub mod utils;
 
 /// Основная функция рендера интерфейса
@@ -28,8 +25,8 @@ pub fn draw<B: Backend>(frame: &mut Frame<B>, app: &mut App) {
     // Превращаем названия вкладок в нужный формат
     let tabs_titles = app
         .tabs
-        .titles
-        .iter()
+        .titles()
+        .into_iter()
         .map(|title| Spans::from(Span::raw(title)))
         .collect();
     // Делаем виджет вкладок и рендерим его
@@ -45,14 +42,8 @@ pub fn draw<B: Backend>(frame: &mut Frame<B>, app: &mut App) {
 
     // Рендерим вкладку
     let main_area = frame_chunks[1];
-    match app.tabs.current {
-        0 => draw_sensors_tab(frame, app, main_area),
-        _ => draw_graph_tab(frame, app, main_area),
-    }
-
-    // Если у нас необычный режим работы программы, мы должны зарендерить это "особенное"
-    match app.state {
-        AppState::FilePicker(_) => draw_file_picker(frame, app, main_area),
-        AppState::Default => (),
+    match app.tabs.state_mut() {
+        AppState::Graph(state) => draw_graph_tab(frame, state, main_area),
+        AppState::Sensors(state) => draw_sensors_tab(frame, state, main_area),
     }
 }

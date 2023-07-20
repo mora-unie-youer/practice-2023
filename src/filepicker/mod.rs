@@ -1,6 +1,6 @@
 use crossterm::event::{KeyCode, KeyEvent};
 
-use crate::app::state::{App, AppState};
+use crate::app::state::App;
 
 use self::state::{FilePickerItem, FilePickerState};
 
@@ -9,24 +9,24 @@ pub mod ui;
 
 impl App<'_> {
     /// Открывает окно выбора файла
-    pub fn open_filepicker(&mut self) -> std::io::Result<()> {
+    pub fn open_file_picker(&mut self) -> std::io::Result<()> {
         // Подготавливаем состояние выбора файла
         let state = FilePickerState::new()?;
         // Устанавливаем новое состояние
-        self.state = AppState::FilePicker(state);
+        self.sensors_state_mut().file_picker_state = Some(state);
 
         Ok(())
     }
 
     /// Закрывает окно выбора файла
-    fn close_filepicker(&mut self) {
-        self.state = AppState::Default;
+    fn close_file_picker(&mut self) {
+        self.sensors_state_mut().file_picker_state = None;
     }
 
     /// Выполняет один тик в режиме выбора файла
-    pub fn tick_filepicker(&mut self) {
+    pub fn tick_file_picker(&mut self) {
         // Получаем состояние выбора файла
-        let state = self.state.file_picker_state().unwrap();
+        let state = self.file_picker_state_mut();
 
         // Если происходит процесс импорта
         if !state.import_threads.is_empty() {
@@ -37,7 +37,7 @@ impl App<'_> {
             }
 
             // После того, как дождались - можем закрыть выбор файла
-            self.close_filepicker();
+            self.close_file_picker();
 
             // Также мы должны обновить дерево датчиков
             // TODO: на всякий случай нужна обработка ошибок здесь
@@ -46,12 +46,12 @@ impl App<'_> {
     }
 
     /// Обрабатывает все события, связанные с нажатием клавиш в режиме выбора файла
-    pub fn on_key_event_filepicker(&mut self, event: KeyEvent) -> std::io::Result<()> {
+    pub fn on_key_event_file_picker(&mut self, event: KeyEvent) -> std::io::Result<()> {
         // Получаем состояние, для того чтобы поменять что-нибудь
-        let state = self.state.file_picker_state().unwrap();
+        let state = self.file_picker_state_mut();
 
         match event.code {
-            KeyCode::Esc | KeyCode::Char('q') => self.close_filepicker(),
+            KeyCode::Esc | KeyCode::Char('q') => self.close_file_picker(),
             KeyCode::Up => state.prev_file(),
             KeyCode::Down => state.next_file(),
             KeyCode::Left => state.goto_parent_directory(),
@@ -65,11 +65,8 @@ impl App<'_> {
 
     /// Пытается открыть файл, и если он был открыт -> импортирует данные в БД
     fn try_import_file(&mut self) {
-        // Получаем состояние, для того чтобы открыть файл/директорию
-        let state = self.state.file_picker_state().unwrap();
-
         // Пытаемся открыть файл. Если директория, то выходим из функции
-        let file_path = match state.open_file_or_directory() {
+        let file_path = match self.file_picker_state_mut().open_file_or_directory() {
             Some(path) => path,
             None => return,
         };
@@ -78,14 +75,13 @@ impl App<'_> {
         let thread = self.import_json_file_to_database(file_path);
 
         // Добавляем поток импорта в список для ожидания
-        let state = self.state.file_picker_state().unwrap();
-        state.import_threads.push(thread);
+        self.file_picker_state_mut().import_threads.push(thread);
     }
 
     /// Пытается импортировать данные из всех файлов в данной директории
     fn try_import_directory(&mut self) {
         // Получаем состояние, для того чтобы открыть файл/директорию
-        let state = self.state.file_picker_state().unwrap();
+        let state = self.file_picker_state();
 
         // Получаем директорию, в которой мы находимся
         let current_directory = state.current_directory.clone();
@@ -104,8 +100,7 @@ impl App<'_> {
                     let thread = self.import_json_file_to_database(file_path);
 
                     // Добавляем поток импорта в список для ожидания
-                    let state = self.state.file_picker_state().unwrap();
-                    state.import_threads.push(thread);
+                    self.file_picker_state_mut().import_threads.push(thread);
                 }
             }
         }

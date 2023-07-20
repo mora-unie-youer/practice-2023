@@ -7,17 +7,12 @@ use tui::{
     Frame,
 };
 
-use crate::{
-    app::state::App,
-    ui::utils::{get_inner_block_area, get_popup_area},
-};
+use crate::ui::utils::{get_inner_block_area, get_popup_area};
 
 use super::state::{FilePickerItem, FilePickerState};
 
-pub fn draw_file_picker<B: Backend>(frame: &mut Frame<B>, app: &mut App, area: Rect) {
-    // Получаем состояние выбора файла
-    let state = app.state.file_picker_state().unwrap();
-
+/// Рендерит окно выбора файла
+pub fn draw_file_picker<B: Backend>(frame: &mut Frame<B>, state: &mut FilePickerState, area: Rect) {
     // Выделяем область под окошко
     let popup_area = get_popup_area(90, 80, area);
 
@@ -49,6 +44,7 @@ pub fn draw_file_picker<B: Backend>(frame: &mut Frame<B>, app: &mut App, area: R
     }
 }
 
+/// Рендерит список файлов
 fn draw_file_list<B: Backend>(frame: &mut Frame<B>, state: &mut FilePickerState, area: Rect) {
     // Выделяем область под список файлов
     let inner_area = get_inner_block_area(area);

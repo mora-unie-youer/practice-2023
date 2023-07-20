@@ -1,8 +1,10 @@
 use std::sync::{Arc, Mutex};
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent};
+use crossterm::event::{KeyEvent, MouseEvent};
 
-use crate::{filepicker::state::FilePickerState, ui::sensors_tab::SensorsTree};
+use crate::{
+    filepicker::state::FilePickerState, graph::state::GraphState, sensors::state::SensorsState,
+};
 
 use super::tabs::Tabs;
 
@@ -13,17 +15,11 @@ pub struct App<'a> {
     /// Определяет, работает ли сейчас программа
     pub running: bool,
 
-    /// Определяет, в каком режиме сейчас находится программа
-    pub state: AppState,
-
     /// Соединение с базой данных
     pub database: Arc<Mutex<rusqlite::Connection>>,
 
-    /// Определяет дерево сенсоров на главной вкладке
-    pub sensors_tree: SensorsTree<'a>,
-
     /// Определяет вкладки, открытые в приложении
-    pub tabs: Tabs,
+    pub tabs: Tabs<'a>,
 }
 
 impl<'a> App<'a> {
@@ -32,13 +28,14 @@ impl<'a> App<'a> {
         // Делаем базовый экземпляр состояния приложения
         let mut app = Self {
             running: true,
-            state: AppState::default(),
-
             database: Arc::new(Mutex::new(database)),
-            sensors_tree: SensorsTree::default(),
-
             tabs: Tabs::default(),
         };
+
+        // Подготавливаем первую вкладку - вкладка сенсоров
+        let sensors_state = SensorsState::default();
+        let app_state = AppState::Sensors(sensors_state);
+        app.tabs.open(app_state);
 
         // Подготавливаем дерево сенсоров
         app.update_sensors_tree()?;
@@ -48,40 +45,17 @@ impl<'a> App<'a> {
 
     /// Выполняет один тик обновления в состоянии приложения
     pub fn tick(&mut self) {
-        match self.state {
-            AppState::Default => self.tick_default(),
-            AppState::FilePicker(_) => self.tick_filepicker(),
+        match self.tabs.state() {
+            AppState::Graph(_) => self.tick_graph(),
+            AppState::Sensors(_) => self.tick_sensors(),
         }
     }
-
-    /// Обрабатывает тик в обычном режиме приложения
-    fn tick_default(&mut self) {}
 
     /// Обрабатывает все события, связанные с нажатием клавиш
     pub fn on_key_event(&mut self, event: KeyEvent) -> std::io::Result<()> {
-        match self.state {
-            AppState::Default => self.on_key_event_default(event)?,
-            AppState::FilePicker(_) => self.on_key_event_filepicker(event)?,
-        }
-
-        Ok(())
-    }
-
-    /// Обрабатывает все события, связанные с нажатием клавиш в обычном режиме
-    pub fn on_key_event_default(&mut self, event: KeyEvent) -> std::io::Result<()> {
-        match event.code {
-            KeyCode::BackTab => self.tabs.prev(),
-            KeyCode::Tab => self.tabs.next(),
-
-            KeyCode::Char('q') if event.modifiers == KeyModifiers::CONTROL => self.running = false,
-            KeyCode::Char('i') => self.open_filepicker()?,
-
-            KeyCode::Up => self.sensors_tree.up(),
-            KeyCode::Down => self.sensors_tree.down(),
-            KeyCode::Left => self.sensors_tree.left(),
-            KeyCode::Right => self.sensors_tree.right(),
-
-            _ => (),
+        match self.tabs.state() {
+            AppState::Graph(_) => self.on_key_event_graph(event),
+            AppState::Sensors(_) => self.on_key_event_sensors(event)?,
         }
 
         Ok(())
@@ -92,25 +66,95 @@ impl<'a> App<'a> {
         // dbg!(event);
         Ok(())
     }
+
+    /// Открывает новую вкладку
+    pub fn open_new_tab(&mut self) {
+        let graph_state = GraphState::new();
+        let app_state = AppState::Graph(graph_state);
+        self.tabs.open(app_state);
+    }
+
+    /// Возвращает ссылку на активное состояние
+    pub fn state(&self) -> &AppState<'a> {
+        self.tabs.state()
+    }
+
+    /// Возвращает изменяемую ссылку на активное состояние
+    pub fn state_mut(&mut self) -> &mut AppState<'a> {
+        self.tabs.state_mut()
+    }
+
+    /// Возвращает ссылку на активное состояние вкладки графика
+    pub fn graph_state(&self) -> &GraphState {
+        self.state().graph().unwrap()
+    }
+
+    /// Возвращает изменяемую ссылку на активное состояние вкладки графика
+    pub fn graph_state_mut(&mut self) -> &mut GraphState {
+        self.state_mut().graph_mut().unwrap()
+    }
+
+    /// Возвращает ссылку на активное состояние вкладки дерева сенсоров
+    pub fn sensors_state(&self) -> &SensorsState<'a> {
+        self.state().sensors().unwrap()
+    }
+
+    /// Возвращает изменяемую ссылку на активное состояние вкладки дерева сенсоров
+    pub fn sensors_state_mut(&mut self) -> &mut SensorsState<'a> {
+        self.state_mut().sensors_mut().unwrap()
+    }
+
+    /// Возвращает ссылку на состояние окна выбора файла
+    pub fn file_picker_state(&self) -> &FilePickerState {
+        self.sensors_state().file_picker_state.as_ref().unwrap()
+    }
+
+    /// Возвращает изменяемую ссылку на состояние окна выбора файла
+    pub fn file_picker_state_mut(&mut self) -> &mut FilePickerState {
+        self.sensors_state_mut().file_picker_state.as_mut().unwrap()
+    }
 }
 
 /// Перечисляемый тип, определяющий режим приложения в данный момент
 /// Используется для работы всяких окошечек и менюшечек
-#[derive(Default, Debug)]
-pub enum AppState {
-    /// Обычное состояние
-    #[default]
-    Default,
+#[derive(Debug)]
+pub enum AppState<'a> {
+    /// Вкладка с графиком
+    Graph(GraphState),
 
-    /// Файловый менеджер, для выбора файла для импорта
-    FilePicker(FilePickerState),
+    /// Вкладка с деревом датчиков
+    Sensors(SensorsState<'a>),
 }
 
-impl AppState {
-    /// Функция для получения состояния выбора файла
-    pub fn file_picker_state(&mut self) -> Option<&mut FilePickerState> {
+impl<'a> AppState<'a> {
+    /// Возвращает ссылку на состояние графика
+    pub fn graph(&self) -> Option<&GraphState> {
         match self {
-            Self::FilePicker(state) => Some(state),
+            Self::Graph(state) => Some(state),
+            _ => None,
+        }
+    }
+
+    /// Возвращает ссылку на состояние дерева сенсоров
+    pub fn sensors(&self) -> Option<&SensorsState<'a>> {
+        match self {
+            Self::Sensors(state) => Some(state),
+            _ => None,
+        }
+    }
+
+    /// Возвращает изменяемую ссылку на состояние графика
+    pub fn graph_mut(&mut self) -> Option<&mut GraphState> {
+        match self {
+            Self::Graph(state) => Some(state),
+            _ => None,
+        }
+    }
+
+    /// Возвращает изменяемую ссылку на состояние дерева сенсоров
+    pub fn sensors_mut(&mut self) -> Option<&mut SensorsState<'a>> {
+        match self {
+            Self::Sensors(state) => Some(state),
             _ => None,
         }
     }

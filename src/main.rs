@@ -10,6 +10,8 @@ use tui::{backend::CrosstermBackend, Terminal};
 pub mod app;
 pub mod database;
 pub mod filepicker;
+pub mod graph;
+pub mod sensors;
 pub mod ui;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
