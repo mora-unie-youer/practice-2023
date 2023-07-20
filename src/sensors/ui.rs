@@ -16,13 +16,11 @@ use super::state::SensorsState;
 pub fn draw_sensors_tab<B: Backend>(frame: &mut Frame<B>, state: &mut SensorsState, area: Rect) {
     // Если у нас есть данные датчиков, рисуем дерево
     if !state.items.is_empty() {
-        let tree = Tree::new(state.items.clone())
-            .highlight_style(
-                Style::default()
-                    .fg(Color::Indexed(2))
-                    .add_modifier(Modifier::BOLD),
-            )
-            .highlight_symbol(">> ");
+        let tree = Tree::new(state.items.clone()).highlight_style(
+            Style::default()
+                .fg(Color::Indexed(2))
+                .add_modifier(Modifier::BOLD),
+        );
         frame.render_stateful_widget(tree, area, &mut state.tree_state);
     } else {
         let text = "--- Данные датчиков не импортированы ---";
