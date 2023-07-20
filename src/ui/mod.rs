@@ -1,17 +1,22 @@
 use tui::{
     backend::Backend,
-    layout::{Alignment, Constraint, Layout, Rect},
-    style::{Color, Modifier, Style},
+    layout::{Alignment, Constraint, Layout},
+    style::{Color, Style},
     text::{Span, Spans},
-    widgets::{Block, Borders, Paragraph, Tabs},
+    widgets::{Block, Borders, Tabs},
     Frame,
 };
-use tui_tree_widget::Tree;
 
 use crate::{
-    app::{App, AppState},
-    filepicker::draw_file_picker,
+    app::state::{App, AppState},
+    filepicker::ui::draw_file_picker,
 };
+
+use self::{graph_tab::draw_graph_tab, sensors_tab::draw_sensors_tab};
+
+pub mod graph_tab;
+pub mod sensors_tab;
+pub mod utils;
 
 /// Основная функция рендера интерфейса
 pub fn draw<B: Backend>(frame: &mut Frame<B>, app: &mut App) {
@@ -41,7 +46,7 @@ pub fn draw<B: Backend>(frame: &mut Frame<B>, app: &mut App) {
     // Рендерим вкладку
     let main_area = frame_chunks[1];
     match app.tabs.current {
-        0 => draw_data_tab(frame, app, main_area),
+        0 => draw_sensors_tab(frame, app, main_area),
         _ => draw_graph_tab(frame, app, main_area),
     }
 
@@ -50,30 +55,4 @@ pub fn draw<B: Backend>(frame: &mut Frame<B>, app: &mut App) {
         AppState::FilePicker(_) => draw_file_picker(frame, app, main_area),
         AppState::Default => (),
     }
-}
-
-// Рендерит вкладку с данными
-fn draw_data_tab<B: Backend>(frame: &mut Frame<B>, app: &mut App, area: Rect) {
-    // Если у нас есть данные датчиков, рисуем дерево
-    if !app.sensors_tree.items.is_empty() {
-        let tree = Tree::new(app.sensors_tree.items.clone())
-            .highlight_style(
-                Style::default()
-                    .fg(Color::Indexed(2))
-                    .add_modifier(Modifier::BOLD),
-            )
-            .highlight_symbol(">> ");
-        frame.render_stateful_widget(tree, area, &mut app.sensors_tree.state);
-    } else {
-        let text = "--- Данные датчиков не импортированы ---";
-        let paragraph = Paragraph::new(vec![Spans::from(text)]);
-        frame.render_widget(paragraph, area);
-    }
-}
-
-// Рендерит вкладку с графиком
-fn draw_graph_tab<B: Backend>(frame: &mut Frame<B>, _app: &mut App, area: Rect) {
-    let text = "Здесь должен быть график";
-    let paragraph = Paragraph::new(vec![Spans::from(text)]);
-    frame.render_widget(paragraph, area);
 }

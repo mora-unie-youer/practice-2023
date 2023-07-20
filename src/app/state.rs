@@ -1,9 +1,10 @@
 use std::sync::{Arc, Mutex};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent};
-use tui_tree_widget::TreeItem;
 
-use crate::{filepicker::FilePickerState, sensors_tree::SensorsTree};
+use crate::{filepicker::state::FilePickerState, ui::sensors_tab::SensorsTree};
+
+use super::tabs::Tabs;
 
 /// Структура, определяющая состояние приложения
 /// Используется везде, где только можно
@@ -43,29 +44,6 @@ impl<'a> App<'a> {
         app.update_sensors_tree()?;
 
         Ok(app)
-    }
-
-    /// Возвращает массив элементов для дерева полей сенсора
-    pub fn update_sensors_tree(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        // Получаем поля сенсоров для дерева
-        let sensors_fields = self.get_sensors_fields()?;
-
-        // Преобразуем поля в дерево
-        let sensors_tree = sensors_fields
-            .into_iter()
-            .map(|(name, fields)| {
-                TreeItem::new(
-                    name,
-                    fields
-                        .into_iter()
-                        .map(TreeItem::new_leaf)
-                        .collect::<Vec<_>>(),
-                )
-            })
-            .collect();
-
-        self.sensors_tree.items = sensors_tree;
-        Ok(())
     }
 
     /// Выполняет один тик обновления в состоянии приложения
@@ -135,43 +113,5 @@ impl AppState {
             Self::FilePicker(state) => Some(state),
             _ => None,
         }
-    }
-}
-
-/// Структура определяющая состояние вкладок
-/// Используется для определения того, в какой вкладке мы находимся, и что должны отображать
-#[derive(Debug)]
-pub struct Tabs {
-    /// Содержит заголовки вкладок
-    pub titles: Vec<String>,
-
-    /// Содержит индекс активной вкладки
-    pub current: usize,
-}
-
-impl Default for Tabs {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Tabs {
-    /// Создаёт новое состояние вкладок
-    pub fn new() -> Self {
-        Self {
-            // Первая вкладка всегда данные и не может быть закрыта
-            titles: vec!["Данные".into(), "График 1".into(), "График 2".into()],
-            current: 0,
-        }
-    }
-
-    /// Переключает на следующую вкладку
-    pub fn next(&mut self) {
-        self.current = (self.current + 1) % self.titles.len();
-    }
-
-    /// Переключает на предыдущую вкладку
-    pub fn prev(&mut self) {
-        self.current = (self.current + self.titles.len() - 1) % self.titles.len();
     }
 }
