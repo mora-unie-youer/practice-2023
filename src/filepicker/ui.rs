@@ -3,7 +3,7 @@ use tui::{
     layout::{Alignment, Rect},
     style::{Color, Modifier, Style},
     text::{Span, Spans, Text},
-    widgets::{Block, Borders, Paragraph},
+    widgets::{Block, Borders, Clear, Paragraph},
     Frame,
 };
 
@@ -52,6 +52,9 @@ pub fn draw_file_picker<B: Backend>(frame: &mut Frame<B>, app: &mut App, area: R
 fn draw_file_list<B: Backend>(frame: &mut Frame<B>, state: &mut FilePickerState, area: Rect) {
     // Выделяем область под список файлов
     let inner_area = get_inner_block_area(area);
+
+    // Очищаем область рендера, чтобы не видеть артефакты
+    frame.render_widget(Clear, inner_area);
 
     // Если директория не пустая -> обрабатываем файлы
     if !state.directory_contents.is_empty() {
