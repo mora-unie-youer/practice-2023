@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use crossterm::event::Event;
+use crossterm::event::{Event, KeyEventKind};
 use tui::{backend::Backend, Terminal};
 
 use self::state::App;
@@ -40,7 +40,11 @@ pub fn run_application<B: Backend>(
             // Проверяем вид инпута
             match crossterm::event::read()? {
                 // Если это ввод с клавиатуры - обрабатываем
-                Event::Key(event) => app.on_key_event(event)?,
+                // Обрабатываем всё кроме Release (спасибо винда за двойные нажатия)
+                Event::Key(event) if event.kind != KeyEventKind::Release => {
+                    app.on_key_event(event)?
+                }
+
                 // Если это ввод с мыши - обрабатываем
                 Event::Mouse(event) => app.on_mouse_event(event)?,
                 // Все остальные инпуты меня пока не интересуют
