@@ -52,7 +52,8 @@ impl App<'_> {
     /// Возвращает массив элементов для дерева полей сенсора
     pub fn update_sensors_tree(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         // Получаем поля сенсоров для дерева
-        let sensors_fields = self.get_sensors_fields()?;
+        let mut sensors_fields: Vec<_> = self.get_sensors_fields()?.into_iter().collect();
+        sensors_fields.sort_unstable();
 
         // Преобразуем поля в дерево
         let sensors_tree: Vec<_> = sensors_fields

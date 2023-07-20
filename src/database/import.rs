@@ -83,10 +83,7 @@ impl App<'_> {
 
             // Выполняем SQL запрос
             let mut statement = insert_entry_tx.prepare_cached(&cached_sql_queries[&uname])?;
-            match statement.execute(fetched_fields.as_slice()) {
-                Ok(_) => (),
-                Err(err) => println!("Не удалось загрузить строку данных по причине: {err}"),
-            }
+            let _ = statement.execute(fetched_fields.as_slice());
         }
         // Заканчиваем транзакцию на добавление данных
         insert_entry_tx.commit()?;
