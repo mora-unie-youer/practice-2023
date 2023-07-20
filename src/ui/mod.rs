@@ -8,7 +8,7 @@ use tui::{
 };
 
 use crate::{
-    app::state::{App, AppState},
+    app::{state::App, tabs::TabState},
     graph::ui::draw_graph_tab,
     sensors::ui::draw_sensors_tab,
 };
@@ -42,8 +42,8 @@ pub fn draw<B: Backend>(frame: &mut Frame<B>, app: &mut App) {
 
     // Рендерим вкладку
     let main_area = frame_chunks[1];
-    match app.tabs.state_mut() {
-        AppState::Graph(state) => draw_graph_tab(frame, state, main_area),
-        AppState::Sensors(state) => draw_sensors_tab(frame, state, main_area),
+    match app.state_mut() {
+        TabState::Graph(state) => draw_graph_tab(frame, state, main_area),
+        TabState::Sensors(state) => draw_sensors_tab(frame, state, main_area),
     }
 }

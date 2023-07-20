@@ -1,11 +1,11 @@
-use super::state::AppState;
+use crate::{graph::state::GraphState, sensors::state::SensorsState};
 
 /// Структура определяющая состояние вкладок
 /// Используется для определения того, в какой вкладке мы находимся, и что должны отображать
 #[derive(Debug)]
 pub struct Tabs<'a> {
     /// Содержит состояния вкладок
-    states: Vec<AppState<'a>>,
+    states: Vec<TabState<'a>>,
 
     /// Содержит индекс активной вкладки
     pub current: usize,
@@ -28,7 +28,7 @@ impl<'a> Tabs<'a> {
     }
 
     /// Открывает новую вкладку
-    pub fn open(&mut self, state: AppState<'a>) {
+    pub fn open(&mut self, state: TabState<'a>) {
         // Добавляем новое состояние
         self.states.push(state);
 
@@ -61,12 +61,12 @@ impl<'a> Tabs<'a> {
     }
 
     /// Возвращает ссылку на активное состояние
-    pub fn state(&self) -> &AppState<'a> {
+    pub fn state(&self) -> &TabState<'a> {
         &self.states[self.current]
     }
 
     /// Возвращает изменяемую ссылку на активное состояние
-    pub fn state_mut(&mut self) -> &mut AppState<'a> {
+    pub fn state_mut(&mut self) -> &mut TabState<'a> {
         &mut self.states[self.current]
     }
 
@@ -76,9 +76,54 @@ impl<'a> Tabs<'a> {
             .iter()
             .enumerate()
             .map(|(i, state)| match state {
-                AppState::Sensors(_) => "Датчики".to_owned(),
-                AppState::Graph(_) => format!("График {i}"),
+                TabState::Sensors(_) => "Датчики".to_owned(),
+                TabState::Graph(_) => format!("График {i}"),
             })
             .collect()
+    }
+}
+
+/// Перечисляемый тип, определяющий режим приложения в данный момент
+/// Используется для работы вкладок
+#[derive(Debug)]
+pub enum TabState<'a> {
+    /// Вкладка с графиком
+    Graph(GraphState),
+
+    /// Вкладка с деревом датчиков
+    Sensors(SensorsState<'a>),
+}
+
+impl<'a> TabState<'a> {
+    /// Возвращает ссылку на состояние графика
+    pub fn graph(&self) -> Option<&GraphState> {
+        match self {
+            Self::Graph(state) => Some(state),
+            _ => None,
+        }
+    }
+
+    /// Возвращает ссылку на состояние дерева сенсоров
+    pub fn sensors(&self) -> Option<&SensorsState<'a>> {
+        match self {
+            Self::Sensors(state) => Some(state),
+            _ => None,
+        }
+    }
+
+    /// Возвращает изменяемую ссылку на состояние графика
+    pub fn graph_mut(&mut self) -> Option<&mut GraphState> {
+        match self {
+            Self::Graph(state) => Some(state),
+            _ => None,
+        }
+    }
+
+    /// Возвращает изменяемую ссылку на состояние дерева сенсоров
+    pub fn sensors_mut(&mut self) -> Option<&mut SensorsState<'a>> {
+        match self {
+            Self::Sensors(state) => Some(state),
+            _ => None,
+        }
     }
 }
