@@ -75,6 +75,21 @@ fn draw_graph_fields<B: Backend>(frame: &mut Frame<B>, state: &mut GraphState, a
     let paragraph = Paragraph::new(spans);
     frame.render_widget(paragraph, var_names_area);
 
+    // Если находимся в режиме редактирования полей, отображаем надпись
+    if state.selected.is_some() {
+        // Подготавливаем область для написания этого
+        let area = Rect {
+            height: 1,
+            ..area_chunks[0]
+        };
+
+        // Рендерим надпись
+        let paragraph = Paragraph::new(Text::raw("Edit"))
+            .alignment(Alignment::Center)
+            .style(Style::default().fg(Color::Red));
+        frame.render_widget(paragraph, area);
+    }
+
     // Подготавливаем области для каждого параметра
     let fields_areas = Layout::default()
         .direction(Direction::Horizontal)
