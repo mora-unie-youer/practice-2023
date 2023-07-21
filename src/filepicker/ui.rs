@@ -59,8 +59,12 @@ fn draw_file_list<B: Backend>(frame: &mut Frame<B>, state: &mut FilePickerState,
             .directory_contents
             .iter()
             .map(|item| match item {
-                FilePickerItem::File(f) => f.rsplit('/').next().unwrap().to_owned(),
-                FilePickerItem::Directory(f) => format!("{}/", f.rsplit('/').next().unwrap()),
+                FilePickerItem::File(f) => {
+                    f.file_name().unwrap().to_os_string().into_string().unwrap()
+                }
+                FilePickerItem::Directory(f) => {
+                    format!("{}/", f.file_name().unwrap().to_str().unwrap())
+                }
             })
             .map(Span::raw)
             .collect();

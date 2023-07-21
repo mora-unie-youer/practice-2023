@@ -3,8 +3,8 @@ use std::{path::PathBuf, thread::JoinHandle};
 /// Определяет одну элемент директории
 #[derive(Clone, Debug)]
 pub enum FilePickerItem {
-    File(String),
-    Directory(String),
+    File(PathBuf),
+    Directory(PathBuf),
 }
 
 /// Описывает данное состояние окна выбора файла
@@ -60,9 +60,9 @@ impl FilePickerState {
             .map(|path| {
                 let metadata = std::fs::metadata(&path).unwrap();
                 if metadata.is_dir() {
-                    FilePickerItem::Directory(path.to_str().unwrap().to_owned())
+                    FilePickerItem::Directory(path)
                 } else {
-                    FilePickerItem::File(path.to_str().unwrap().to_owned())
+                    FilePickerItem::File(path)
                 }
             })
             .collect();
@@ -112,7 +112,7 @@ impl FilePickerState {
     }
 
     /// Открывает директорию-потомка
-    pub fn goto_child_directory(&mut self, child: String) {
+    pub fn goto_child_directory(&mut self, child: PathBuf) {
         // Сохраняем директорию, на случай ошибок при переходе
         let backup = self.current_directory.clone();
 
