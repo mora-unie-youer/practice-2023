@@ -2,6 +2,8 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::app::state::App;
 
+use self::state::GraphFieldState;
+
 pub mod state;
 pub mod ui;
 
@@ -14,10 +16,19 @@ impl App<'_> {
         // Получаем состояние вкладки графика
         let state = self.graph_state();
 
-        match state.selected_menu_state() {
-            Some(state) if state.opened() => self.on_key_event_graph_menu(event),
-            Some(_) => self.on_key_event_graph_edit(event),
-            _ => self.on_key_event_graph_default(event),
+        if state.selected.is_some() {
+            match state.selected_field_state() {
+                // TODO: check if input selected
+                // GraphFieldState::Input(_) => {}
+                GraphFieldState::Menu(state) if state.opened() => {
+                    self.on_key_event_graph_menu(event)
+                }
+                GraphFieldState::Hidden => panic!("Скрытые поля не должны быть выделены"),
+                // Если не открыто никакое поле -> режим редактирования
+                _ => self.on_key_event_graph_edit(event),
+            }
+        } else {
+            self.on_key_event_graph_default(event);
         }
     }
 
@@ -58,7 +69,7 @@ impl App<'_> {
             KeyCode::Left => state.select_prev(1),
             KeyCode::Right => state.select_next(1),
             // Открытие меню
-            KeyCode::Enter => state.selected_menu_state_mut().unwrap().open(),
+            KeyCode::Enter => state.selected_menu_state_mut().open(),
 
             _ => (),
         }
@@ -71,7 +82,7 @@ impl App<'_> {
         let length = state.sensor_fields.len();
 
         // Получаем состояние открытого меню
-        let menu_state = state.selected_menu_state_mut().unwrap();
+        let menu_state = state.selected_menu_state_mut();
 
         match event.code {
             // Выход из меню без сохранения
