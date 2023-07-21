@@ -136,6 +136,7 @@ fn draw_graph_fields<B: Backend>(frame: &mut Frame<B>, state: &mut GraphState, a
                     // Получаем область под поле
                     let field_area = Rect {
                         y: area.y + i as u16 + 1,
+                        width: area.width - 1,
                         height: 1 + MENU_HEIGHT, // 1 для названия
                         ..area
                     };

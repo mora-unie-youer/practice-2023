@@ -122,6 +122,24 @@ impl StatefulWidget for Menu<'_> {
         let paragraph = Paragraph::new(text).style(self.style);
         paragraph.render(field_area, buf);
 
+        // Рендер символа в конце выбранного элемента, для отображения состояния меню
+        let opened_area = Rect {
+            x: field_area.x + field_area.width - 2,
+            width: 2,
+            ..field_area
+        };
+
+        // Выбор символа в зависимости от состояния
+        let text = Text::raw(if state.opened() {
+            " \u{25bc}"
+        } else {
+            " \u{25c0}"
+        });
+
+        // Рендер символа
+        let paragraph = Paragraph::new(text);
+        paragraph.render(opened_area, buf);
+
         // Рендерим окно меню, если оно открыто
         if state.opened() {
             // Подготавливаем область для меню
