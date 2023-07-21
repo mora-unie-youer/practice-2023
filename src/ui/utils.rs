@@ -26,8 +26,3 @@ pub fn get_popup_area(percent_width: u16, percent_height: u16, area: Rect) -> Re
         )
         .split(popup_layout[1])[1]
 }
-
-/// Возвращает внутреннюю область блока
-pub fn get_inner_block_area(area: Rect) -> Rect {
-    Rect::new(area.x + 1, area.y + 1, area.width - 2, area.height - 2)
-}

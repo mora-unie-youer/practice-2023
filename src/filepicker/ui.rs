@@ -7,7 +7,7 @@ use tui::{
     Frame,
 };
 
-use crate::ui::utils::{get_inner_block_area, get_popup_area};
+use crate::ui::utils::get_popup_area;
 
 use super::state::{FilePickerItem, FilePickerState};
 
@@ -21,11 +21,10 @@ pub fn draw_file_picker<B: Backend>(frame: &mut Frame<B>, state: &mut FilePicker
         .title("Выбор файла для импорта")
         .borders(Borders::ALL);
 
-    // Рендерим блок
-    frame.render_widget(block, popup_area);
-
     // Рендерим список файлов
-    draw_file_list(frame, state, popup_area);
+    let file_list_area = block.inner(popup_area);
+    frame.render_widget(block, popup_area);
+    draw_file_list(frame, state, file_list_area);
 
     // Если у нас сейчас происходит момент импорта файла, отображаем окошко и ждём.
     if !state.import_threads.is_empty() {
@@ -34,10 +33,10 @@ pub fn draw_file_picker<B: Backend>(frame: &mut Frame<B>, state: &mut FilePicker
 
         // Делаем блок и рендерим его
         let block = Block::default().borders(Borders::ALL);
+        let inner_area = block.inner(wait_popup_area);
         frame.render_widget(block, wait_popup_area);
 
         // Делаем виджет для рендера внутри
-        let inner_area = get_inner_block_area(wait_popup_area);
         let text = "Данные импортируются, подождите...";
         let paragraph = Paragraph::new(Text::from(text)).alignment(Alignment::Center);
         frame.render_widget(paragraph, inner_area);
@@ -46,11 +45,8 @@ pub fn draw_file_picker<B: Backend>(frame: &mut Frame<B>, state: &mut FilePicker
 
 /// Рендерит список файлов
 fn draw_file_list<B: Backend>(frame: &mut Frame<B>, state: &mut FilePickerState, area: Rect) {
-    // Выделяем область под список файлов
-    let inner_area = get_inner_block_area(area);
-
     // Очищаем область рендера, чтобы не видеть артефакты
-    frame.render_widget(Clear, inner_area);
+    frame.render_widget(Clear, area);
 
     // Если директория не пустая -> обрабатываем файлы
     if !state.directory_contents.is_empty() {
@@ -75,7 +71,7 @@ fn draw_file_list<B: Backend>(frame: &mut Frame<B>, state: &mut FilePickerState,
             .add_modifier(Modifier::BOLD);
 
         // Получаем границы рендера
-        let (start, end) = state.get_render_bounds(inner_area.height as usize);
+        let (start, end) = state.get_render_bounds(area.height as usize);
 
         // Делаем Spans для нормального отображения
         let filenames_spans: Vec<_> = filenames
@@ -87,11 +83,11 @@ fn draw_file_list<B: Backend>(frame: &mut Frame<B>, state: &mut FilePickerState,
 
         // Подготавливаем виджет для отображения
         let paragraph = Paragraph::new(filenames_spans);
-        frame.render_widget(paragraph, inner_area);
+        frame.render_widget(paragraph, area);
     } else {
         // Делаем виджет для рендера внутри
         let text = "--- Директория пуста --";
         let paragraph = Paragraph::new(Text::from(text));
-        frame.render_widget(paragraph, inner_area);
+        frame.render_widget(paragraph, area);
     }
 }
