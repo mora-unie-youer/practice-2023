@@ -67,7 +67,7 @@ fn draw_file_list<B: Backend>(frame: &mut Frame<B>, state: &mut FilePickerState,
 
         // Делаем выбранный файл выделенным
         filenames[state.selection_index].style = Style::default()
-            .fg(Color::Indexed(2))
+            .fg(Color::Green)
             .add_modifier(Modifier::BOLD);
 
         // Получаем границы рендера

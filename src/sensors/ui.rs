@@ -18,7 +18,7 @@ pub fn draw_sensors_tab<B: Backend>(frame: &mut Frame<B>, state: &mut SensorsSta
     if !state.items.is_empty() {
         let tree = Tree::new(state.items.clone()).highlight_style(
             Style::default()
-                .fg(Color::Indexed(2))
+                .fg(Color::Green)
                 .add_modifier(Modifier::BOLD),
         );
         frame.render_stateful_widget(tree, area, &mut state.tree_state);
