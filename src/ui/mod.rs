@@ -13,6 +13,7 @@ use crate::{
     sensors::ui::draw_sensors_tab,
 };
 
+pub mod menu;
 pub mod utils;
 
 /// Основная функция рендера интерфейса
