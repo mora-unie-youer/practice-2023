@@ -1,6 +1,6 @@
 use tui::{
     backend::Backend,
-    layout::{Alignment, Constraint, Layout},
+    layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Style},
     text::{Span, Spans},
     widgets::{Block, Borders, Tabs},
@@ -19,6 +19,7 @@ pub mod utils;
 pub fn draw<B: Backend>(frame: &mut Frame<B>, app: &mut App) {
     // Разделяем фрейм на части
     let frame_chunks = Layout::default()
+        .direction(Direction::Vertical)
         .constraints([Constraint::Length(3), Constraint::Min(0)])
         .split(frame.size());
 
