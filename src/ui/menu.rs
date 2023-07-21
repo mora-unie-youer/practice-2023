@@ -19,7 +19,7 @@ pub struct MenuState {
 impl MenuState {
     /// Открывает меню
     pub fn open(&mut self) {
-        self.list_state.select(Some(0));
+        self.list_state.select(self.selected.or(Some(0)));
     }
 
     /// Закрывает меню
