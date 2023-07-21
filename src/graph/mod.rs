@@ -105,6 +105,12 @@ impl App<'_> {
 
     /// Удаляет последний график
     pub fn remove_graph(&mut self) {
-        self.graph_state_mut().ys_states.pop();
+        // Получаем состояние вкладки графика
+        let state = self.graph_state_mut();
+
+        // Удаляем последний график, если он не последний
+        if state.ys_states.len() > 1 {
+            state.ys_states.pop();
+        }
     }
 }
