@@ -13,6 +13,7 @@ use crate::{
     sensors::ui::draw_sensors_tab,
 };
 
+pub mod input;
 pub mod menu;
 pub mod utils;
 

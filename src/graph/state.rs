@@ -1,4 +1,4 @@
-use crate::ui::menu::MenuState;
+use crate::ui::{input::InputState, menu::MenuState};
 
 /// Сохраняет состояние вкладки графика
 #[derive(Debug)]
@@ -32,7 +32,7 @@ impl GraphState {
             x_states: [
                 GraphFieldState::Menu(MenuState::default()),
                 GraphFieldState::Hidden,
-                GraphFieldState::Input(()),
+                GraphFieldState::Input(InputState::default()),
                 GraphFieldState::Menu(MenuState::default()),
             ],
             ys_states: vec![Default::default()],
@@ -73,12 +73,12 @@ impl GraphState {
     }
 
     /// Возвращает ссылку на состояние выделенное поле ввода текста
-    pub fn selected_input_state(&self) -> &() {
+    pub fn selected_input_state(&self) -> &InputState {
         self.selected_field_state().input().unwrap()
     }
 
     /// Возвращает изменяемую ссылку на состояние выделенное поле ввода текста
-    pub fn selected_input_state_mut(&mut self) -> &mut () {
+    pub fn selected_input_state_mut(&mut self) -> &mut InputState {
         self.selected_field_state_mut().input_mut().unwrap()
     }
 
@@ -126,7 +126,7 @@ pub enum GraphFieldState {
     Hidden,
 
     /// Определяет поле ввода текста
-    Input(()),
+    Input(InputState),
 
     /// Определяет меню с возможными полями
     Menu(MenuState),
@@ -134,13 +134,13 @@ pub enum GraphFieldState {
 
 impl Default for GraphFieldState {
     fn default() -> Self {
-        Self::Input(())
+        Self::Hidden
     }
 }
 
 impl GraphFieldState {
     /// Возвращает ссылку на состояние поля ввода
-    pub fn input(&self) -> Option<&()> {
+    pub fn input(&self) -> Option<&InputState> {
         match self {
             Self::Input(state) => Some(state),
             _ => None,
@@ -148,7 +148,7 @@ impl GraphFieldState {
     }
 
     /// Возвращает изменяемую ссылку на состояние поля ввода
-    pub fn input_mut(&mut self) -> Option<&mut ()> {
+    pub fn input_mut(&mut self) -> Option<&mut InputState> {
         match self {
             Self::Input(state) => Some(state),
             _ => None,

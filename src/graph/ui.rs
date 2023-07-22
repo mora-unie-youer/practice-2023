@@ -9,7 +9,10 @@ use tui::{
 
 use crate::{
     graph::state::GraphFieldState,
-    ui::menu::{Menu, MENU_HEIGHT},
+    ui::{
+        input::Input,
+        menu::{Menu, MENU_HEIGHT},
+    },
 };
 
 use super::state::GraphState;
@@ -126,6 +129,13 @@ fn draw_graph_fields<B: Backend>(frame: &mut Frame<B>, state: &mut GraphState, a
     // Рендерим каждое поле (необходимо делать в обратном порядке, чтобы не было пересечений с меню)
     for (i, variable) in ys_states.chain(std::iter::once(x_states)) {
         for (j, field) in variable.iter_mut().enumerate() {
+            // Делаем выбранный элемент выделенным, если меню "выделено"
+            let style = if state.selected == Some(i * 4 + j) {
+                Style::default().fg(Color::Green)
+            } else {
+                Style::default()
+            };
+
             // Проверяем, какое поле нам надо рендерить
             match field {
                 // Рендерим меню
@@ -144,36 +154,24 @@ fn draw_graph_fields<B: Backend>(frame: &mut Frame<B>, state: &mut GraphState, a
                     // Подготавливаем меню
                     let menu = Menu::new(fields.clone())
                         .list_style(Style::default().bg(Color::White).fg(Color::Black))
-                        .list_highlight_style(Style::default().bg(Color::Green).fg(Color::Black));
-
-                    // Делаем выбранный элемент выделенным, если меню "выделено"
-                    let menu = if state.selected == Some(i * 4 + j) {
-                        menu.style(Style::default().fg(Color::Green))
-                    } else {
-                        menu
-                    };
+                        .list_highlight_style(Style::default().bg(Color::Green).fg(Color::Black))
+                        .style(style);
 
                     // Рендерим меню
                     frame.render_stateful_widget(menu, field_area, menu_state);
                 }
                 // Рендерим поле ввода текста
-                GraphFieldState::Input(_) => {
+                GraphFieldState::Input(input_state) => {
                     // Получаем общую область
                     let area = fields_areas[j];
                     let area = Rect::new(area.x, area.y + i as u16 + 1, area.width - 1, 1);
 
                     // Подготавливаем стиль для элемента
-                    let style = Style::default().add_modifier(Modifier::UNDERLINED);
-                    // Делаем выбранный элемент выделенным, если меню "выделено"
-                    let style = if state.selected == Some(i * 4 + j) {
-                        style.fg(Color::Green)
-                    } else {
-                        style
-                    };
+                    let style = style.add_modifier(Modifier::UNDERLINED);
 
-                    // TODO: Рендерим поле
-                    let paragraph = Paragraph::new(vec![Spans::from("Инпут")]).style(style);
-                    frame.render_widget(paragraph, area);
+                    // Рендерим поле
+                    let input = Input::new().style(style);
+                    frame.render_stateful_widget(input, area, input_state);
                 }
                 // Пустые поля не надо рендерить
                 GraphFieldState::Hidden => (),
