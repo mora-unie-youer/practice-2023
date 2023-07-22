@@ -133,7 +133,6 @@ impl App<'_> {
                 menu_state.select();
                 // Обновляем поля графиков
                 self.update_graph_field(self.graph_state().selected.unwrap());
-                eprintln!();
             }
 
             _ => (),

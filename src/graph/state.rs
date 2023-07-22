@@ -1,7 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
-    database::SensorsFields,
+    database::{SensorsFields, SensorsSerials},
     ui::{input::InputState, menu::MenuState},
 };
 
@@ -11,14 +11,14 @@ pub struct GraphState {
     /// Сохраняет все поля датчиков
     pub sensor_fields: Rc<RefCell<SensorsFields>>,
 
+    /// Сохраняет все серийники датчиков
+    pub sensor_serials: Rc<RefCell<SensorsSerials>>,
+
     /// Сохраняет все поля данных X
     pub x_data_fields: Vec<String>,
 
     /// Сохраняет все поля данных Y
     pub y_data_fields: Vec<String>,
-
-    /// Содержит возможные серийники датчиков
-    pub serials: Option<Vec<String>>,
 
     /// Содержит параметры для X
     pub x_states: [GraphFieldState; 4],
@@ -32,19 +32,27 @@ pub struct GraphState {
 
 impl GraphState {
     /// Создаёт новый экземпляр состояния вкладки графика
-    pub fn new(sensor_fields: Rc<RefCell<SensorsFields>>) -> Self {
+    pub fn new(
+        sensor_fields: Rc<RefCell<SensorsFields>>,
+        sensor_serials: Rc<RefCell<SensorsSerials>>,
+    ) -> Self {
         GraphState {
+            sensor_fields,
+            sensor_serials,
+
             x_states: GraphState::default_graph(),
             ys_states: vec![GraphState::default_graph()],
 
-            sensor_fields,
             x_data_fields: vec![],
             y_data_fields: vec![],
 
-            serials: None,
-
             selected: None,
         }
+    }
+
+    /// Обновляет всё, связанное с данными датчиков в графике
+    pub fn update_sensor_data(&mut self) {
+        self.update_sensor_fields();
     }
 
     /// Обновляет поля датчиков и связанное с ними в графике

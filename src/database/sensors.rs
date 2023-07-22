@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::app::state::App;
 
-use super::SensorsFields;
+use super::{SensorsFields, SensorsSerials};
 
 impl App<'_> {
     /// Получает структуру таблиц датчиков, загруженных в БД
@@ -39,5 +39,36 @@ impl App<'_> {
         }
 
         Ok(sensors_fields)
+    }
+
+    /// Возвращает серийники датчиков, уже загруженных в состояние приложения
+    pub fn get_sensors_serials(&self) -> Result<SensorsSerials, Box<dyn std::error::Error>> {
+        // Делаем "копию" соединения с базой данных
+        let database = self.database.clone();
+        // Получаем соединение с базой данных
+        let database = database.lock().unwrap();
+
+        // Таблица, которая будет хранить все известные серийники сенсоров
+        let mut sensor_serials = HashMap::new();
+
+        // Получаем с каждого сенсора серийники
+        for sensor in self.sensor_fields.borrow().keys() {
+            // SQL запрос, который получит серийиники
+            let sql = format!("SELECT DISTINCT serial FROM {sensor}");
+            let mut statement = database.prepare_cached(&sql)?;
+            let mut rows = statement.query(())?;
+
+            // Получаем серийники
+            let mut serials: Vec<String> = vec![];
+            while let Some(row) = rows.next()? {
+                serials.push(row.get(0)?);
+            }
+
+            // Кладём серийники в хэш-таблицу
+            serials.sort_unstable();
+            sensor_serials.insert(sensor.clone(), serials);
+        }
+
+        Ok(sensor_serials)
     }
 }

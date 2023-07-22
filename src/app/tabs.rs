@@ -61,11 +61,11 @@ impl<'a> Tabs<'a> {
     }
 
     /// Обновляет поля датчиков во всех вкладках
-    pub fn update_sensor_fields(&mut self) {
+    pub fn update_sensor_data(&mut self) {
         for tab in &mut self.states {
             match tab {
-                TabState::Graph(state) => state.update_sensor_fields(),
-                TabState::Sensors(state) => state.update_sensor_fields(),
+                TabState::Graph(state) => state.update_sensor_data(),
+                TabState::Sensors(state) => state.update_sensor_data(),
             }
         }
     }
