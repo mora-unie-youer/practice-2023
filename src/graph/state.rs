@@ -29,31 +29,32 @@ impl GraphState {
     /// Создаёт новый экземпляр состояния вкладки графика
     pub fn new() -> Self {
         GraphState {
-            x_states: [
-                GraphFieldState::Menu(MenuState::default()),
-                GraphFieldState::Hidden,
-                GraphFieldState::Input(InputState::default()),
-                GraphFieldState::Menu(MenuState::default()),
-            ],
-            ys_states: vec![Default::default()],
+            x_states: GraphState::default_graph(),
+            ys_states: vec![GraphState::default_graph()],
 
             sensor_fields: vec![
                 "Поле 1".to_owned(),
-                "Поле 2".to_owned(),
-                "Поле 3".to_owned(),
-                "Поле 4".to_owned(),
-                "Поле 5".to_owned(),
-                "Поле 6".to_owned(),
-                "Поле 7".to_owned(),
-                "Поле 8".to_owned(),
-                "Поле 9".to_owned(),
-                "Поле 10".to_owned(),
-                "Поле 11".to_owned(),
+                "Датчик 1/Поле 1".to_owned(),
+                "Датчик 1/Поле 2".to_owned(),
+                "Датчик 1/Поле 3".to_owned(),
+                "Датчик 2/Поле 1".to_owned(),
+                "Датчик 2/Поле 2".to_owned(),
+                "Датчик 2/Поле 3".to_owned(),
             ],
             serials: None,
 
             selected: None,
         }
+    }
+
+    /// Возвращает дефолтные поля пустого графика
+    pub fn default_graph() -> [GraphFieldState; 4] {
+        [
+            GraphFieldState::Menu(MenuState::default()),
+            GraphFieldState::Hidden,
+            GraphFieldState::Hidden,
+            GraphFieldState::Hidden,
+        ]
     }
 
     /// Возвращает ссылку на состояние выделенного элемента меню

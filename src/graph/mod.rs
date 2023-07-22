@@ -1,8 +1,11 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use crate::app::state::App;
+use crate::{
+    app::state::App,
+    ui::{input::InputState, menu::MenuState},
+};
 
-use self::state::GraphFieldState;
+use self::state::{GraphFieldState, GraphState};
 
 pub mod state;
 pub mod ui;
@@ -46,7 +49,7 @@ impl App<'_> {
             KeyCode::Tab => self.tabs.next(),
             KeyCode::Char('N') => self.open_new_tab(),
             KeyCode::Char('q') => self.tabs.close(),
-            // Открытие режима редактирования
+            // Открытие режима редактирования (первое поле всегда не пустое)
             KeyCode::Char('e') => state.selected = Some(0),
 
             _ => (),
@@ -89,7 +92,11 @@ impl App<'_> {
 
         match event.code {
             // Выход из поля ввода
-            KeyCode::Esc | KeyCode::Enter => state.close(),
+            KeyCode::Esc | KeyCode::Enter => {
+                state.close();
+                // Обновляем поля графиков
+                self.update_graph_field(self.graph_state().selected.unwrap());
+            }
             // Навигация в поле ввода
             KeyCode::Home => state.goto_start(),
             KeyCode::End => state.goto_end(),
@@ -120,7 +127,12 @@ impl App<'_> {
             KeyCode::Up => menu_state.prev(length),
             KeyCode::Down => menu_state.next(length),
             // Выбор элемента в меню
-            KeyCode::Enter => menu_state.select(),
+            KeyCode::Enter => {
+                menu_state.select();
+                // Обновляем поля графиков
+                self.update_graph_field(self.graph_state().selected.unwrap());
+                eprintln!();
+            }
 
             _ => (),
         }
@@ -129,7 +141,9 @@ impl App<'_> {
     /// Добавляет новую функцию Y(x) на график
     pub fn add_graph(&mut self) {
         // Добавляем пустые параметры к графику
-        self.graph_state_mut().ys_states.push(Default::default());
+        self.graph_state_mut()
+            .ys_states
+            .push(GraphState::default_graph());
     }
 
     /// Удаляет последний график
@@ -140,6 +154,125 @@ impl App<'_> {
         // Удаляем последний график, если он не последний
         if state.ys_states.len() > 1 {
             state.ys_states.pop();
+        }
+    }
+
+    /// Обрабатывает поля графика
+    pub fn update_graph_field(&mut self, selected: usize) {
+        eprintln!("Updating {selected}");
+        // Получаем состояние вкладки графика
+        let state = self.graph_state_mut();
+
+        // Обрабатываем изменение поля, откладывая апдейты некоторых полей
+        // TODO: в будущем будет меняться манера управления сенсорами
+        //       ВАЖНО учитывать, что Y сломается тогда
+        let mut to_update = vec![];
+        match selected {
+            // Если обновилось поле данных X
+            0 => {
+                // Получаем состояние поля
+                let field_state = state.x_states[0].menu().unwrap();
+                // Получаем значение поля
+                let value = &state.sensor_fields[field_state.selected().unwrap()];
+                // Проверяем, является ли это полем датчика
+                if let Some((sensor, _)) = value.split_once('/') {
+                    // Включаем поле серийника, заодно сбрасываем
+                    state.x_states[1] = GraphFieldState::Menu(MenuState::default());
+                    to_update.push(1);
+
+                    // Если является полем датчика, проверяем, что все графики тоже используют поле этого тачика
+                    for (i, y_fields) in state.ys_states.iter_mut().enumerate() {
+                        // Получаем состояние поля
+                        let y_sensor_field_state = y_fields[0].menu_mut().unwrap();
+                        // Если в поле что-то выбрано, отсматриваем что
+                        if let Some(selection_index) = y_sensor_field_state.selected() {
+                            // Если поле не начинается на название сенсора, сбрасываем значение
+                            let value = &state.sensor_fields[selection_index];
+                            if !value.starts_with(sensor) {
+                                // Обновляем поле графика
+                                y_sensor_field_state.unselect();
+                                to_update.push((i + 1) * 4);
+                            }
+                        }
+                    }
+                } else {
+                    // Выключаем поле серийника
+                    state.x_states[1] = GraphFieldState::Hidden;
+                    to_update.push(1);
+                }
+
+                // Также мы должны обновить поля мин/макс значения
+                state.x_states[2] = GraphFieldState::Input(InputState::default());
+                state.x_states[3] = GraphFieldState::Input(InputState::default());
+                to_update.extend([2, 3]);
+            }
+            // Обновился серийник X
+            1 => {}
+            // Обновилось минимальное значение X
+            2 => {}
+            // Обновилось максимальное значение X
+            3 => {}
+
+            // Обновилось поле данных Y
+            v if v % 4 == 0 => {
+                // Получаем индекс графика
+                let y_index = v / 4 - 1;
+                // Получаем изменяемую ссылку на этот график
+                let y_fields = &mut state.ys_states[y_index];
+                // Получаем состояние поля этого графика
+                let field_state = y_fields[0].menu().unwrap();
+                // Проверяем, выбрано ли что-то в поле
+                if let Some(selection_index) = field_state.selected() {
+                    // Получаем значение поля
+                    let value = &state.sensor_fields[selection_index];
+                    // Получаем название датчика и поле
+                    let (_, field) = value.split_once('/').unwrap();
+
+                    // Проверяем, нужно ли отобразить серийник. Для этого смотрим, есть ли серийник у X
+                    to_update.push(v + 1);
+                    if let GraphFieldState::Hidden = state.x_states[1] {
+                        // Ставим второе поле серийником
+                        y_fields[1] = GraphFieldState::Menu(MenuState::default());
+                    } else {
+                        // Ставим второе поле пустым
+                        y_fields[1] = GraphFieldState::Hidden;
+                    }
+
+                    // Проверяем на "особые поля"
+                    match field {
+                        "Эффективная температура" => {
+                            // Для эффективной температуры, последние два поля - датчики
+                            y_fields[2] = GraphFieldState::Menu(MenuState::default());
+                            y_fields[3] = GraphFieldState::Menu(MenuState::default());
+                            to_update.extend([v + 2, v + 3]);
+                        }
+                        _ => {
+                            // Для всех других полей последние два поля - пустые
+                            y_fields[2] = GraphFieldState::Hidden;
+                            y_fields[3] = GraphFieldState::Hidden;
+                            to_update.extend([v + 2, v + 3]);
+                        }
+                    }
+                } else {
+                    // Если не выбрано, скрываем все возможные поля
+                    y_fields[1] = GraphFieldState::Hidden;
+                    y_fields[2] = GraphFieldState::Hidden;
+                    y_fields[3] = GraphFieldState::Hidden;
+                    to_update.extend([v + 1, v + 2, v + 3]);
+                }
+            }
+
+            // Обновился серийник Y
+            v if v % 4 == 1 => {}
+            // Обновился температурный датчик
+            v if v % 4 == 2 => {}
+            // Обновился датчик давления
+            _v => {}
+        }
+
+        // Обновляем отложенное
+        for i in to_update {
+            self.update_graph_field(i);
         }
     }
 }

@@ -50,6 +50,11 @@ impl MenuState {
         self.close();
     }
 
+    /// Убирает выбор у меню
+    pub fn unselect(&mut self) {
+        self.selected = None;
+    }
+
     /// Возвращает выбранный элемент
     pub fn selected(&self) -> Option<usize> {
         self.selected
