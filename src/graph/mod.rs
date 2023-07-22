@@ -1,9 +1,6 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use crate::{
-    app::state::App,
-    ui::{input::InputState, menu::MenuState},
-};
+use crate::app::state::App;
 
 use self::state::{GraphFieldState, GraphState};
 
@@ -177,7 +174,7 @@ impl App<'_> {
                 // Проверяем, является ли это полем датчика
                 if let Some((sensor, _)) = value.split_once('/') {
                     // Включаем поле серийника, заодно сбрасываем
-                    state.x_states[1] = GraphFieldState::Menu(MenuState::default());
+                    state.x_states[1] = GraphFieldState::new_menu();
                     to_update.push(1);
 
                     // Если является полем датчика, проверяем, что все графики тоже используют поле этого тачика
@@ -202,8 +199,8 @@ impl App<'_> {
                 }
 
                 // Также мы должны обновить поля мин/макс значения
-                state.x_states[2] = GraphFieldState::Input(InputState::default());
-                state.x_states[3] = GraphFieldState::Input(InputState::default());
+                state.x_states[2] = GraphFieldState::new_input();
+                state.x_states[3] = GraphFieldState::new_input();
                 to_update.extend([2, 3]);
             }
             // Обновился серийник X
@@ -232,7 +229,7 @@ impl App<'_> {
                     to_update.push(v + 1);
                     if let GraphFieldState::Hidden = state.x_states[1] {
                         // Ставим второе поле серийником
-                        y_fields[1] = GraphFieldState::Menu(MenuState::default());
+                        y_fields[1] = GraphFieldState::new_menu();
                     } else {
                         // Ставим второе поле пустым
                         y_fields[1] = GraphFieldState::Hidden;
@@ -242,8 +239,8 @@ impl App<'_> {
                     match field {
                         "Эффективная температура" => {
                             // Для эффективной температуры, последние два поля - датчики
-                            y_fields[2] = GraphFieldState::Menu(MenuState::default());
-                            y_fields[3] = GraphFieldState::Menu(MenuState::default());
+                            y_fields[2] = GraphFieldState::new_menu();
+                            y_fields[3] = GraphFieldState::new_menu();
                             to_update.extend([v + 2, v + 3]);
                         }
                         _ => {

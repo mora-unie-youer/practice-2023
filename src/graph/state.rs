@@ -50,7 +50,7 @@ impl GraphState {
     /// Возвращает дефолтные поля пустого графика
     pub fn default_graph() -> [GraphFieldState; 4] {
         [
-            GraphFieldState::Menu(MenuState::default()),
+            GraphFieldState::new_menu(),
             GraphFieldState::Hidden,
             GraphFieldState::Hidden,
             GraphFieldState::Hidden,
@@ -140,6 +140,16 @@ impl Default for GraphFieldState {
 }
 
 impl GraphFieldState {
+    /// Создаёт новое состояние поля ввода
+    pub fn new_input() -> Self {
+        Self::Input(InputState::default())
+    }
+
+    /// Создаёт новое состояние меню
+    pub fn new_menu() -> Self {
+        Self::Menu(MenuState::default())
+    }
+
     /// Возвращает ссылку на состояние поля ввода
     pub fn input(&self) -> Option<&InputState> {
         match self {
