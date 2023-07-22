@@ -200,10 +200,12 @@ impl App<'_> {
                     state.x_states[1] = GraphFieldState::Hidden;
                     to_update.push(1);
 
-                    // Включаем поля серийника на всех Y
+                    // Включаем поля серийника на всех установленных Y
                     for y_fields in state.ys_states.iter_mut() {
-                        // Устанавливаем поле. Обновлять его не нужно
-                        y_fields[1] = GraphFieldState::new_menu();
+                        if y_fields[0].menu().unwrap().selected().is_some() {
+                            // Устанавливаем поле. Обновлять его не нужно
+                            y_fields[1] = GraphFieldState::new_menu();
+                        }
                     }
                 }
 
