@@ -189,6 +189,9 @@ impl App<'_> {
                                 // Обновляем поле графика
                                 y_sensor_field_state.unselect();
                                 to_update.push((i + 1) * 4);
+                            } else {
+                                // Необходимо убрать серийник у поля, если уж не обновляем поле
+                                y_fields[1] = GraphFieldState::Hidden;
                             }
                         }
                     }
@@ -196,6 +199,12 @@ impl App<'_> {
                     // Выключаем поле серийника
                     state.x_states[1] = GraphFieldState::Hidden;
                     to_update.push(1);
+
+                    // Включаем поля серийника на всех Y
+                    for y_fields in state.ys_states.iter_mut() {
+                        // Устанавливаем поле. Обновлять его не нужно
+                        y_fields[1] = GraphFieldState::new_menu();
+                    }
                 }
 
                 // Также мы должны обновить поля мин/макс значения
