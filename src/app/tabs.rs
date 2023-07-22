@@ -60,6 +60,16 @@ impl<'a> Tabs<'a> {
         self.current = (self.current + self.states.len() - 1) % self.states.len();
     }
 
+    /// Обновляет поля датчиков во всех вкладках
+    pub fn update_sensor_fields(&mut self) {
+        for tab in &mut self.states {
+            match tab {
+                TabState::Graph(state) => state.update_sensor_fields(),
+                TabState::Sensors(state) => state.update_sensor_fields(),
+            }
+        }
+    }
+
     /// Возвращает ссылку на активное состояние
     pub fn state(&self) -> &TabState<'a> {
         &self.states[self.current]

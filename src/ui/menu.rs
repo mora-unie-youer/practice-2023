@@ -34,12 +34,22 @@ impl MenuState {
 
     /// Переходит к предыдущему элементу меню
     pub fn prev(&mut self, length: usize) {
+        // Если элементов нет, не делаем ничего
+        if length == 0 {
+            return;
+        }
+
         let i = self.list_state.selected().unwrap();
         self.list_state.select(Some((i + length - 1) % length));
     }
 
     /// Переходит к следующему элементу меню
     pub fn next(&mut self, length: usize) {
+        // Если элементов нет, не делаем ничего
+        if length == 0 {
+            return;
+        }
+
         let i = self.list_state.selected().unwrap();
         self.list_state.select(Some((i + 1) % length));
     }
@@ -48,6 +58,11 @@ impl MenuState {
     pub fn select(&mut self) {
         self.selected = self.list_state.selected();
         self.close();
+    }
+
+    /// Устанавливает выбор у меню
+    pub fn set_select(&mut self, selection: Option<usize>) {
+        self.selected = selection;
     }
 
     /// Убирает выбор у меню

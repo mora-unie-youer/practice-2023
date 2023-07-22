@@ -1,5 +1,4 @@
 use crossterm::event::{KeyCode, KeyEvent};
-use tui_tree_widget::TreeItem;
 
 use crate::app::state::App;
 
@@ -46,30 +45,6 @@ impl App<'_> {
             }
         }
 
-        Ok(())
-    }
-
-    /// Возвращает массив элементов для дерева полей сенсора
-    pub fn update_sensors_tree(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        // Получаем поля сенсоров для дерева
-        let mut sensors_fields: Vec<_> = self.get_sensors_fields()?.into_iter().collect();
-        sensors_fields.sort_unstable();
-
-        // Преобразуем поля в дерево
-        let sensors_tree: Vec<_> = sensors_fields
-            .into_iter()
-            .map(|(name, fields)| {
-                TreeItem::new(
-                    name,
-                    fields
-                        .into_iter()
-                        .map(TreeItem::new_leaf)
-                        .collect::<Vec<_>>(),
-                )
-            })
-            .collect();
-
-        self.sensors_state_mut().items = sensors_tree;
         Ok(())
     }
 }

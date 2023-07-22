@@ -115,7 +115,9 @@ fn draw_graph_fields<B: Backend>(frame: &mut Frame<B>, state: &mut GraphState, a
         frame.render_widget(paragraph, area);
     }
 
-    let fields: Vec<_> = state.sensor_fields.iter().cloned().map(Text::raw).collect();
+    // let sensor_fields = state.sensor_fields.borrow();
+    let x_data_fields: Vec<_> = state.x_data_fields.iter().cloned().map(Text::raw).collect();
+    let y_data_fields: Vec<_> = state.y_data_fields.iter().cloned().map(Text::raw).collect();
 
     // Подготавливаем итераторы
     let x_states = (0, &mut state.x_states);
@@ -151,8 +153,18 @@ fn draw_graph_fields<B: Backend>(frame: &mut Frame<B>, state: &mut GraphState, a
                         ..area
                     };
 
+                    // Получаем элементы меню
+                    let items = match j {
+                        // Поля значений X
+                        0 if i == 0 => x_data_fields.clone(),
+                        // Поля значений Y
+                        0 => y_data_fields.clone(),
+
+                        _ => vec![Text::raw("1")],
+                    };
+
                     // Подготавливаем меню
-                    let menu = Menu::new(fields.clone())
+                    let menu = Menu::new(items)
                         .list_style(Style::default().bg(Color::White).fg(Color::Black))
                         .list_highlight_style(Style::default().bg(Color::Green).fg(Color::Black))
                         .style(style);

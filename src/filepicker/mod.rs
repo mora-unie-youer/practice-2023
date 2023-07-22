@@ -41,7 +41,7 @@ impl App<'_> {
 
             // Также мы должны обновить дерево датчиков
             // TODO: на всякий случай нужна обработка ошибок здесь
-            let _ = self.update_sensors_tree();
+            let _ = self.update_sensor_fields();
         }
     }
 

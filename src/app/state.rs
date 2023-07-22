@@ -1,9 +1,14 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    cell::RefCell,
+    rc::Rc,
+    sync::{Arc, Mutex},
+};
 
 use crossterm::event::{KeyEvent, MouseEvent};
 
 use crate::{
-    filepicker::state::FilePickerState, graph::state::GraphState, sensors::state::SensorsState,
+    database::SensorsFields, filepicker::state::FilePickerState, graph::state::GraphState,
+    sensors::state::SensorsState,
 };
 
 use super::tabs::{TabState, Tabs};
@@ -18,6 +23,9 @@ pub struct App<'a> {
     /// Соединение с базой данных
     pub database: Arc<Mutex<rusqlite::Connection>>,
 
+    /// Хранит поля датчиков в данный момент выполнения программы
+    pub sensor_fields: Rc<RefCell<SensorsFields>>,
+
     /// Определяет вкладки, открытые в приложении
     pub tabs: Tabs<'a>,
 }
@@ -29,16 +37,17 @@ impl<'a> App<'a> {
         let mut app = Self {
             running: true,
             database: Arc::new(Mutex::new(database)),
+            sensor_fields: Rc::new(RefCell::new(SensorsFields::new())),
             tabs: Tabs::default(),
         };
 
         // Подготавливаем первую вкладку - вкладка сенсоров
-        let sensors_state = SensorsState::default();
+        let sensors_state = SensorsState::new(app.sensor_fields.clone());
         let app_state = TabState::Sensors(sensors_state);
         app.tabs.open(app_state);
 
         // Подготавливаем дерево сенсоров
-        app.update_sensors_tree()?;
+        app.update_sensor_fields()?;
 
         Ok(app)
     }
@@ -67,9 +76,25 @@ impl<'a> App<'a> {
         Ok(())
     }
 
+    /// Обновляет поля датчиков
+    pub fn update_sensor_fields(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        // Получаем новые поля и сохраняем их
+        let sensor_fields = self.get_sensors_fields()?;
+        *self.sensor_fields.borrow_mut() = sensor_fields;
+
+        // Обновляем поля во вкладках
+        self.tabs.update_sensor_fields();
+
+        Ok(())
+    }
+
     /// Открывает новую вкладку
     pub fn open_new_tab(&mut self) {
-        let graph_state = GraphState::new();
+        // Создаём новую вкладку
+        let mut graph_state = GraphState::new(self.sensor_fields.clone());
+        graph_state.update_sensor_fields();
+
+        // Открываем новую вкладку
         let app_state = TabState::Graph(graph_state);
         self.tabs.open(app_state);
     }

@@ -72,9 +72,9 @@ impl App<'_> {
             KeyCode::Left => state.select_prev(1),
             KeyCode::Right => state.select_next(1),
             // Открытие редактирование поля
-            KeyCode::Enter => match state.selected_field_state() {
-                GraphFieldState::Input(_) => state.selected_input_state_mut().open(),
-                GraphFieldState::Menu(_) => state.selected_menu_state_mut().open(),
+            KeyCode::Enter => match state.selected_field_state_mut() {
+                GraphFieldState::Input(input_state) => input_state.open(),
+                GraphFieldState::Menu(menu_state) => menu_state.open(),
                 GraphFieldState::Hidden => panic!("Скрытое поле не должно быть выделено"),
             },
 
@@ -111,8 +111,13 @@ impl App<'_> {
     fn on_key_event_graph_menu(&mut self, event: KeyEvent) {
         // Получаем состояние вкладки графика
         let state = self.graph_state_mut();
+
         // Количество элементов в открытом меню
-        let length = state.sensor_fields.len();
+        let length = if state.selected.unwrap() == 0 {
+            state.x_data_fields.len()
+        } else {
+            state.y_data_fields.len()
+        };
 
         // Получаем состояние открытого меню
         let menu_state = state.selected_menu_state_mut();
@@ -161,8 +166,6 @@ impl App<'_> {
         let state = self.graph_state_mut();
 
         // Обрабатываем изменение поля, откладывая апдейты некоторых полей
-        // TODO: в будущем будет меняться манера управления сенсорами
-        //       ВАЖНО учитывать, что Y сломается тогда
         let mut to_update = vec![];
         match selected {
             // Если обновилось поле данных X
@@ -170,7 +173,7 @@ impl App<'_> {
                 // Получаем состояние поля
                 let field_state = state.x_states[0].menu().unwrap();
                 // Получаем значение поля
-                let value = &state.sensor_fields[field_state.selected().unwrap()];
+                let value = &state.x_data_fields[field_state.selected().unwrap()];
                 // Проверяем, является ли это полем датчика
                 if let Some((sensor, _)) = value.split_once('/') {
                     // Включаем поле серийника, заодно сбрасываем
@@ -184,10 +187,9 @@ impl App<'_> {
                         // Если в поле что-то выбрано, отсматриваем что
                         if let Some(selection_index) = y_sensor_field_state.selected() {
                             // Если поле не начинается на название сенсора, сбрасываем значение
-                            let value = &state.sensor_fields[selection_index];
+                            let value = &state.y_data_fields[selection_index];
                             if !value.starts_with(sensor) {
-                                // Обновляем поле графика
-                                y_sensor_field_state.unselect();
+                                // Обновляем поле графика (чуть позже оно будет сброшено)
                                 to_update.push((i + 1) * 4);
                             } else {
                                 // Необходимо убрать серийник у поля, если уж не обновляем поле
@@ -213,11 +215,17 @@ impl App<'_> {
                 state.x_states[2] = GraphFieldState::new_input();
                 state.x_states[3] = GraphFieldState::new_input();
                 to_update.extend([2, 3]);
+
+                // И под конец можно обновить перечень полей данных Y
+                state.update_y_data_fields();
             }
+
             // Обновился серийник X
             1 => {}
+
             // Обновилось минимальное значение X
             2 => {}
+
             // Обновилось максимальное значение X
             3 => {}
 
@@ -232,7 +240,7 @@ impl App<'_> {
                 // Проверяем, выбрано ли что-то в поле
                 if let Some(selection_index) = field_state.selected() {
                     // Получаем значение поля
-                    let value = &state.sensor_fields[selection_index];
+                    let value = &state.y_data_fields[selection_index];
                     // Получаем название датчика и поле
                     let (_, field) = value.split_once('/').unwrap();
 
@@ -272,8 +280,10 @@ impl App<'_> {
 
             // Обновился серийник Y
             v if v % 4 == 1 => {}
+
             // Обновился температурный датчик
             v if v % 4 == 2 => {}
+
             // Обновился датчик давления
             _v => {}
         }

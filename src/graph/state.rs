@@ -1,10 +1,21 @@
-use crate::ui::{input::InputState, menu::MenuState};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
+
+use crate::{
+    database::SensorsFields,
+    ui::{input::InputState, menu::MenuState},
+};
 
 /// Сохраняет состояние вкладки графика
 #[derive(Debug)]
 pub struct GraphState {
-    /// Содержит возможные значения датчиков
-    pub sensor_fields: Vec<String>,
+    /// Сохраняет все поля датчиков
+    pub sensor_fields: Rc<RefCell<SensorsFields>>,
+
+    /// Сохраняет все поля данных X
+    pub x_data_fields: Vec<String>,
+
+    /// Сохраняет все поля данных Y
+    pub y_data_fields: Vec<String>,
 
     /// Содержит возможные серийники датчиков
     pub serials: Option<Vec<String>>,
@@ -19,34 +30,121 @@ pub struct GraphState {
     pub selected: Option<usize>,
 }
 
-impl Default for GraphState {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl GraphState {
     /// Создаёт новый экземпляр состояния вкладки графика
-    pub fn new() -> Self {
+    pub fn new(sensor_fields: Rc<RefCell<SensorsFields>>) -> Self {
         GraphState {
             x_states: GraphState::default_graph(),
             ys_states: vec![GraphState::default_graph()],
 
-            sensor_fields: vec![
-                "Поле 1".to_owned(),
-                "Датчик 1/Поле 1".to_owned(),
-                "Датчик 1/Поле 2".to_owned(),
-                "Датчик 1/Поле 3".to_owned(),
-                "Датчик 1/Эффективная температура".to_owned(),
-                "Датчик 2/Поле 1".to_owned(),
-                "Датчик 2/Поле 2".to_owned(),
-                "Датчик 2/Поле 3".to_owned(),
-                "Датчик 2/Эффективная температура".to_owned(),
-            ],
+            sensor_fields,
+            x_data_fields: vec![],
+            y_data_fields: vec![],
+
             serials: None,
 
             selected: None,
         }
+    }
+
+    /// Обновляет поля датчиков и связанное с ними в графике
+    pub fn update_sensor_fields(&mut self) {
+        // Поля, которые необходимо игнорировать
+        const IGNORE_FIELDS: [&str; 3] = ["id", "serial", "date"];
+
+        // Получаем поля сенсоров для дерева
+        let sensor_fields_ref = self.sensor_fields.borrow();
+        let mut sensor_fields: Vec<_> = sensor_fields_ref.iter().collect();
+        sensor_fields.sort_unstable();
+
+        // Генерируем поля данных для X
+        let mut new_x_data_fields = vec!["date".to_owned()];
+        new_x_data_fields.extend(sensor_fields.iter().flat_map(|(sensor, fields)| {
+            fields
+                .iter()
+                .filter(|field| !IGNORE_FIELDS.contains(&field.as_str()))
+                .map(move |field| format!("{sensor}/{field}"))
+        }));
+
+        // Преобразуем старый индекс в поле X, если он был
+        let x_data_field = self.x_states[0].menu_mut().unwrap();
+        if let Some(i) = x_data_field.selected() {
+            // Получаем данное значение поля данных X
+            let value = &self.x_data_fields[i];
+            // Ищем новый индекс и записываем его
+            x_data_field.set_select(new_x_data_fields.iter().position(|field| field == value));
+        }
+
+        // Теперь можно сохранить поля данных X
+        self.x_data_fields = new_x_data_fields;
+
+        // Дропаем ссылку, т.к. она мешает дальнейшему коду
+        drop(sensor_fields_ref);
+
+        // Обновляем поля данных Y
+        self.update_y_data_fields();
+    }
+
+    pub fn update_y_data_fields(&mut self) {
+        const EXTRA_FIELDS: [&str; 1] = ["Эфф. темп."];
+
+        // Генерируем поля данных для Y на основе полей X
+        let mut new_y_data_fields = self.x_data_fields.clone();
+        new_y_data_fields.retain(|field| field.contains('/'));
+
+        // Дополняем поля к последнему датчику
+        let last_field = new_y_data_fields.last().cloned().unwrap();
+        let (last_sensor, _) = last_field.split_once('/').unwrap();
+        for extra_field in EXTRA_FIELDS {
+            new_y_data_fields.push(format!("{last_sensor}/{extra_field}"));
+        }
+
+        // Дополняем новые поля к каждому датчику
+        for (i, window) in new_y_data_fields.clone().windows(2).enumerate().rev() {
+            let (sensor_a, _) = window[0].split_once('/').unwrap();
+            let (sensor_b, _) = window[1].split_once('/').unwrap();
+            // Когда два соседних сенсора не равны - это место для вставки дополнительных полей
+            if sensor_a != sensor_b {
+                for extra_field in EXTRA_FIELDS {
+                    new_y_data_fields.insert(i + 1, format!("{sensor_a}/{extra_field}"));
+                }
+            }
+        }
+
+        // Если X специализирует единственный датчик - убираем все другие датчики
+        if let Some(i) = self.x_states[0].menu().unwrap().selected() {
+            // Получаем данное значение поля данных X
+            let value = &self.x_data_fields[i];
+            // Если поле представляет из себя поле датчика, то убираем лишние из Y
+            if let Some((sensor, _)) = value.split_once('/') {
+                let start = format!("{sensor}/");
+                new_y_data_fields.retain(|field| field.starts_with(&start));
+            }
+        }
+
+        // Конвертируем все выбранные Y поля на новые индексы
+        let index_conversion_map: HashMap<usize, usize> = new_y_data_fields
+            .iter()
+            .enumerate()
+            .filter_map(|(i, field)| {
+                self.y_data_fields
+                    .iter()
+                    .position(|old| old == field)
+                    .map(|j| (j, i))
+            })
+            .collect();
+
+        // Редактируем все установленные поля данных Y
+        for y_fields in &mut self.ys_states {
+            let y_data_field = y_fields[0].menu_mut().unwrap();
+            // Берём сохранённый индекс в поле
+            if let Some(i) = y_data_field.selected() {
+                y_data_field.set_select(index_conversion_map.get(&i).cloned());
+            }
+        }
+
+        // Теперь можно сохранить поля данных Y
+        self.y_data_fields = new_y_data_fields;
     }
 
     /// Возвращает дефолтные поля пустого графика
