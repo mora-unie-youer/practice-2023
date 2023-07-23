@@ -48,7 +48,7 @@ impl<'a> App<'a> {
         // Подготавливаем первую вкладку - вкладка сенсоров
         let sensors_state =
             SensorsState::new(app.sensor_fields.clone(), app.sensor_serials.clone());
-        let app_state = TabState::Sensors(sensors_state);
+        let app_state = TabState::Sensors(Box::new(sensors_state));
         app.tabs.open(app_state);
 
         // Подготавливаем дерево сенсоров
@@ -105,7 +105,7 @@ impl<'a> App<'a> {
         graph_state.update_sensor_data();
 
         // Открываем новую вкладку
-        let app_state = TabState::Graph(graph_state);
+        let app_state = TabState::Graph(Box::new(graph_state));
         self.tabs.open(app_state);
     }
 

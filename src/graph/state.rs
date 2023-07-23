@@ -79,7 +79,7 @@ impl GraphState {
             .iter()
             .map(|(sensor, fields)| {
                 let new_fields = fields
-                    .into_iter()
+                    .iter()
                     .filter(|field| !IGNORE_FIELDS.contains(&field.as_str()))
                     .map(|field| format!("{sensor}/{field}"))
                     .collect();

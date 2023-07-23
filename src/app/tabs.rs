@@ -98,10 +98,10 @@ impl<'a> Tabs<'a> {
 #[derive(Debug)]
 pub enum TabState<'a> {
     /// Вкладка с графиком
-    Graph(GraphState),
+    Graph(Box<GraphState>),
 
     /// Вкладка с деревом датчиков
-    Sensors(SensorsState<'a>),
+    Sensors(Box<SensorsState<'a>>),
 }
 
 impl<'a> TabState<'a> {
