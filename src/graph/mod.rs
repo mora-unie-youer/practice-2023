@@ -261,7 +261,7 @@ impl App<'_> {
 
                     // Проверяем на "особые поля"
                     match field {
-                        "Эффективная температура" => {
+                        "Эфф. темп." => {
                             // Для эффективной температуры, последние два поля - датчики
                             y_fields[2] = GraphFieldState::new_menu();
                             y_fields[3] = GraphFieldState::new_menu();
