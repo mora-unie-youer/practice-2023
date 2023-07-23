@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use tui::{
     backend::Backend,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
@@ -115,9 +117,16 @@ fn draw_graph_fields<B: Backend>(frame: &mut Frame<B>, state: &mut GraphState, a
         frame.render_widget(paragraph, area);
     }
 
-    // let sensor_fields = state.sensor_fields.borrow();
     let x_data_fields: Vec<_> = state.x_data_fields.iter().cloned().map(Text::raw).collect();
     let y_data_fields: Vec<_> = state.y_data_fields.iter().cloned().map(Text::raw).collect();
+    let serial_fields: HashMap<_, Vec<_>> = state
+        .serial_fields
+        .iter()
+        .map(|(name, fields)| {
+            let fields = fields.iter().cloned().map(Text::raw).collect();
+            (name.clone(), fields)
+        })
+        .collect();
 
     // Подготавливаем итераторы
     let x_states = (0, &mut state.x_states);
@@ -130,6 +139,9 @@ fn draw_graph_fields<B: Backend>(frame: &mut Frame<B>, state: &mut GraphState, a
 
     // Рендерим каждое поле (необходимо делать в обратном порядке, чтобы не было пересечений с меню)
     for (i, variable) in ys_states.chain(std::iter::once(x_states)) {
+        // Сохранем выбор поля данных для будущих действий
+        let data_selection = variable[0].menu().unwrap().selected();
+
         for (j, field) in variable.iter_mut().enumerate() {
             // Делаем выбранный элемент выделенным, если меню "выделено"
             let style = if state.selected == Some(i * 4 + j) {
@@ -159,6 +171,25 @@ fn draw_graph_fields<B: Backend>(frame: &mut Frame<B>, state: &mut GraphState, a
                         0 if i == 0 => x_data_fields.clone(),
                         // Поля значений Y
                         0 => y_data_fields.clone(),
+                        // Поля серийников (поле значений гарантированно выбрано)
+                        1 => {
+                            // Получаем выбор с поля данных
+                            let data_selection = data_selection.unwrap();
+                            // В зависимости от переменной, сенсор надо получать из разных массивов
+                            if i == 0 {
+                                // Обрабатываем как поле X
+                                let selection = &state.x_data_fields[data_selection];
+                                let (sensor, _) = selection.split_once('/').unwrap();
+                                // Получаем серийники датчика
+                                serial_fields[sensor].clone()
+                            } else {
+                                // Обрабатываем как поле Y
+                                let selection = &state.y_data_fields[data_selection];
+                                let (sensor, _) = selection.split_once('/').unwrap();
+                                // Получаем серийники датчика
+                                serial_fields[sensor].clone()
+                            }
+                        }
 
                         _ => vec![Text::raw("1")],
                     };

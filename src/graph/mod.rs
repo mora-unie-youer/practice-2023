@@ -113,10 +113,16 @@ impl App<'_> {
         let state = self.graph_state_mut();
 
         // Количество элементов в открытом меню
-        let length = if state.selected.unwrap() == 0 {
-            state.x_data_fields.len()
-        } else {
-            state.y_data_fields.len()
+        let length = match state.selected.unwrap() {
+            // Поля данных X
+            0 => state.x_data_fields.len(),
+            // Поля данных Y
+            v if v % 4 == 0 => state.y_data_fields.len(),
+
+            // Поля серийников
+            v if v % 4 == 1 => state.get_serial_fields_for_sensor(v).len(),
+
+            _ => 1,
         };
 
         // Получаем состояние открытого меню

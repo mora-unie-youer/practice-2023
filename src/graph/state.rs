@@ -20,6 +20,9 @@ pub struct GraphState {
     /// Сохраняет все поля данных Y
     pub y_data_fields: Vec<String>,
 
+    /// Сохраняет возможыне выборы серийника
+    pub serial_fields: SensorsSerials,
+
     /// Содержит параметры для X
     pub x_states: [GraphFieldState; 4],
 
@@ -45,6 +48,7 @@ impl GraphState {
 
             x_data_fields: vec![],
             y_data_fields: vec![],
+            serial_fields: SensorsSerials::new(),
 
             selected: None,
         }
@@ -53,6 +57,7 @@ impl GraphState {
     /// Обновляет всё, связанное с данными датчиков в графике
     pub fn update_sensor_data(&mut self) {
         self.update_sensor_fields();
+        self.update_sensor_serials();
     }
 
     /// Обновляет поля датчиков и связанное с ними в графике
@@ -60,7 +65,7 @@ impl GraphState {
         // Поля, которые необходимо игнорировать
         const IGNORE_FIELDS: [&str; 3] = ["id", "serial", "date"];
 
-        // Получаем поля сенсоров для дерева
+        // Получаем поля сенсоров
         let sensor_fields_ref = self.sensor_fields.borrow();
         let mut sensor_fields: Vec<_> = sensor_fields_ref.iter().collect();
         sensor_fields.sort_unstable();
@@ -153,6 +158,47 @@ impl GraphState {
 
         // Теперь можно сохранить поля данных Y
         self.y_data_fields = new_y_data_fields;
+    }
+
+    /// Обновляет серийники датчиков и связанное с ними в графике
+    pub fn update_sensor_serials(&mut self) {
+        const EXTRA_FIELDS: [&str; 3] = ["Средн.", "Макс.", "Мин."];
+        // Получаем серийники датчиков
+        let sensor_serials_ref = self.sensor_serials.borrow();
+        // Делаем копию, чтобы добавить новые "псевдо-серийники"
+        let mut serial_fields = sensor_serials_ref.clone();
+
+        // Добавляем дополнительные поля в начало
+        for (_, fields) in serial_fields.iter_mut() {
+            for extra_field in EXTRA_FIELDS.into_iter().rev() {
+                fields.insert(0, extra_field.to_owned());
+            }
+        }
+
+        // Теперь можно сохранить серийники датчиков
+        self.serial_fields = serial_fields;
+    }
+
+    /// Возвращает серийники для поля с индексом
+    pub fn get_serial_fields_for_sensor(&self, field_index: usize) -> &Vec<String> {
+        // Извлекаем название сенсора из выбранного поля данных
+        let selection = if field_index == 1 {
+            // Обрабатываем как поле X
+            let selection = self.x_states[0].menu().unwrap().selected().unwrap();
+            &self.x_data_fields[selection]
+        } else {
+            // Обрабатываем как поле Y
+            let selection = self.ys_states[field_index / 4 - 1][0]
+                .menu()
+                .unwrap()
+                .selected()
+                .unwrap();
+            &self.y_data_fields[selection]
+        };
+
+        let (sensor, _) = selection.split_once('/').unwrap();
+        // Получаем серийники датчика
+        &self.serial_fields[sensor]
     }
 
     /// Возвращает дефолтные поля пустого графика
