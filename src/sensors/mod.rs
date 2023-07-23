@@ -38,6 +38,7 @@ impl App<'_> {
                 KeyCode::Down => state.tree_state.key_down(&state.items),
                 KeyCode::Left => state.tree_state.key_left(),
                 KeyCode::Right => state.tree_state.key_right(),
+                KeyCode::Char(' ') | KeyCode::Enter => state.tree_state.toggle_selected(),
                 // Импорт данных
                 KeyCode::Char('i') => self.open_file_picker()?,
 
