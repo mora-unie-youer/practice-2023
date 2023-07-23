@@ -116,13 +116,20 @@ impl App<'_> {
         let length = match state.selected.unwrap() {
             // Поля данных X
             0 => state.x_data_fields.len(),
+
             // Поля данных Y
             v if v % 4 == 0 => state.y_data_fields.len(),
-
             // Поля серийников
             v if v % 4 == 1 => state.get_serial_fields_for_sensor(v).len(),
 
-            _ => 1,
+            // Поля дополнительных данных Y (основное поле гарантированно установлено)
+            v => {
+                // Получаем основное поле данных Y
+                let data_field = state.ys_states[v / 4 - 1][0].menu().unwrap();
+                let selected = data_field.selected().unwrap();
+                let (sensor, _) = state.y_data_fields[selected].split_once('/').unwrap();
+                state.y_data_fields_without_extra[sensor].len()
+            }
         };
 
         // Получаем состояние открытого меню

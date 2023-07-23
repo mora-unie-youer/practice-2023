@@ -20,6 +20,9 @@ pub struct GraphState {
     /// Сохраняет все поля данных Y
     pub y_data_fields: Vec<String>,
 
+    /// Содержит в себе поля Y без дополнительными вариантами
+    pub y_data_fields_without_extra: SensorsFields,
+
     /// Сохраняет возможыне выборы серийника
     pub serial_fields: SensorsSerials,
 
@@ -48,6 +51,7 @@ impl GraphState {
 
             x_data_fields: vec![],
             y_data_fields: vec![],
+            y_data_fields_without_extra: HashMap::new(),
             serial_fields: SensorsSerials::new(),
 
             selected: None,
@@ -69,6 +73,20 @@ impl GraphState {
         let sensor_fields_ref = self.sensor_fields.borrow();
         let mut sensor_fields: Vec<_> = sensor_fields_ref.iter().collect();
         sensor_fields.sort_unstable();
+
+        // Генерируем хэш-таблицу с полями каждого датчика для Y
+        let new_y_data_fields_without_extra: SensorsFields = sensor_fields_ref
+            .iter()
+            .map(|(sensor, fields)| {
+                let new_fields = fields
+                    .into_iter()
+                    .filter(|field| !IGNORE_FIELDS.contains(&field.as_str()))
+                    .map(|field| format!("{sensor}/{field}"))
+                    .collect();
+                (sensor.clone(), new_fields)
+            })
+            .collect();
+        self.y_data_fields_without_extra = new_y_data_fields_without_extra;
 
         // Генерируем поля данных для X
         let mut new_x_data_fields = vec!["date".to_owned()];
@@ -105,6 +123,19 @@ impl GraphState {
         let mut new_y_data_fields = self.x_data_fields.clone();
         new_y_data_fields.retain(|field| field.contains('/'));
 
+        // Если X специализирует единственный датчик - убираем все другие датчики
+        if let Some(i) = self.x_states[0].menu().unwrap().selected() {
+            // Получаем данное значение поля данных X
+            let value = &self.x_data_fields[i];
+            // Если поле представляет из себя поле датчика, то убираем лишние из Y
+            if let Some((sensor, _)) = value.split_once('/') {
+                let start = format!("{sensor}/");
+                new_y_data_fields.retain(|field| field.starts_with(&start));
+            }
+        }
+
+        // Генерируем поля с дополнительными вариантами
+        let mut new_y_data_fields = new_y_data_fields.clone();
         // Дополняем поля к последнему датчику
         let last_field = new_y_data_fields.last().cloned().unwrap();
         let (last_sensor, _) = last_field.split_once('/').unwrap();
@@ -124,17 +155,6 @@ impl GraphState {
             }
         }
 
-        // Если X специализирует единственный датчик - убираем все другие датчики
-        if let Some(i) = self.x_states[0].menu().unwrap().selected() {
-            // Получаем данное значение поля данных X
-            let value = &self.x_data_fields[i];
-            // Если поле представляет из себя поле датчика, то убираем лишние из Y
-            if let Some((sensor, _)) = value.split_once('/') {
-                let start = format!("{sensor}/");
-                new_y_data_fields.retain(|field| field.starts_with(&start));
-            }
-        }
-
         // Конвертируем все выбранные Y поля на новые индексы
         let index_conversion_map: HashMap<usize, usize> = new_y_data_fields
             .iter()
@@ -149,10 +169,11 @@ impl GraphState {
 
         // Редактируем все установленные поля данных Y
         for y_fields in &mut self.ys_states {
-            let y_data_field = y_fields[0].menu_mut().unwrap();
+            // Конверируем поля данных Y
+            let field = y_fields[0].menu_mut().unwrap();
             // Берём сохранённый индекс в поле
-            if let Some(i) = y_data_field.selected() {
-                y_data_field.set_select(index_conversion_map.get(&i).cloned());
+            if let Some(i) = field.selected() {
+                field.set_select(index_conversion_map.get(&i).copied());
             }
         }
 

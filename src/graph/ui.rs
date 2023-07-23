@@ -117,14 +117,24 @@ fn draw_graph_fields<B: Backend>(frame: &mut Frame<B>, state: &mut GraphState, a
         frame.render_widget(paragraph, area);
     }
 
+    // Подготавливаем данные для рендера
     let x_data_fields: Vec<_> = state.x_data_fields.iter().cloned().map(Text::raw).collect();
     let y_data_fields: Vec<_> = state.y_data_fields.iter().cloned().map(Text::raw).collect();
+    let y_data_fields_without_extra: HashMap<_, Vec<_>> = state
+        .y_data_fields_without_extra
+        .clone()
+        .into_iter()
+        .map(|(sensor, fields)| {
+            let fields = fields.iter().cloned().map(Text::raw).collect();
+            (sensor.clone(), fields)
+        })
+        .collect();
     let serial_fields: HashMap<_, Vec<_>> = state
         .serial_fields
         .iter()
-        .map(|(name, fields)| {
+        .map(|(sensor, fields)| {
             let fields = fields.iter().cloned().map(Text::raw).collect();
-            (name.clone(), fields)
+            (sensor.clone(), fields)
         })
         .collect();
 
@@ -191,7 +201,16 @@ fn draw_graph_fields<B: Backend>(frame: &mut Frame<B>, state: &mut GraphState, a
                             }
                         }
 
-                        _ => vec![Text::raw("1")],
+                        // Поля дополнительных данных Y
+                        _ => {
+                            // Получаем выбор с поля данных
+                            let data_selection = data_selection.unwrap();
+                            // Получаем название сенсора
+                            let selection = &state.y_data_fields[data_selection];
+                            let (sensor, _) = selection.split_once('/').unwrap();
+                            // Получаем поля необходимые для отображения
+                            y_data_fields_without_extra[sensor].clone()
+                        }
                     };
 
                     // Подготавливаем меню
