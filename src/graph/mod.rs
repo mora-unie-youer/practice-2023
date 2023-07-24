@@ -183,7 +183,6 @@ impl App<'_> {
 
     /// Обрабатывает поля графика
     pub fn update_graph_field(&mut self, selected: usize) {
-        eprintln!("Updating {selected}");
         // Получаем состояние вкладки графика
         let state = self.graph_state_mut();
 
