@@ -348,7 +348,7 @@ impl GraphState {
                         .iter()
                         .map(|&(x, _)| x)
                         .min_by(|a, b| a.partial_cmp(b).unwrap())
-                        .unwrap()
+                        .unwrap_or(0.)
                 })
                 .min_by(|a, b| a.partial_cmp(b).unwrap())
                 .unwrap(),
@@ -366,7 +366,7 @@ impl GraphState {
                         .iter()
                         .map(|&(x, _)| x)
                         .max_by(|a, b| a.partial_cmp(b).unwrap())
-                        .unwrap()
+                        .unwrap_or(0.)
                 })
                 .max_by(|a, b| a.partial_cmp(b).unwrap())
                 .unwrap(),
