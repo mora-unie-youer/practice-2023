@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 chrono = "0.4.26"
 crossterm = "0.26.1"
+csv = "1.2.2"
 itertools = "0.11.0"
 rusqlite = { version = "0.29.0", features = ["array", "bundled"] }
 serde = "1.0.171"
