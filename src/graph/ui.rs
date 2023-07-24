@@ -1,11 +1,12 @@
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use tui::{
     backend::Backend,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    text::{Spans, Text},
-    widgets::{Block, Borders, Paragraph},
+    symbols::Marker,
+    text::{Span, Spans, Text},
+    widgets::{Axis, Block, Borders, Chart, Dataset, GraphType, Paragraph},
     Frame,
 };
 
@@ -33,9 +34,7 @@ pub fn draw_graph_tab<B: Backend>(frame: &mut Frame<B>, state: &mut GraphState, 
 
     // Рендерим графики (необходимо, чтобы они не перекрывали возможные меню)
     let chart_area = area_chunks[1];
-    let text = Text::raw("Тут должен быть график");
-    let paragraph = Paragraph::new(text);
-    frame.render_widget(paragraph, chart_area);
+    draw_graph_chart(frame, state, chart_area);
 
     // Делаем блок для полей графика
     let fields_area = area_chunks[0];
@@ -240,4 +239,75 @@ fn draw_graph_fields<B: Backend>(frame: &mut Frame<B>, state: &mut GraphState, a
             }
         }
     }
+}
+
+/// Рендерит общий чарт со всеми графиками по датасетам в состоянии
+fn draw_graph_chart<B: Backend>(frame: &mut Frame<B>, state: &mut GraphState, area: Rect) {
+    // Перерисовываем чарт только когда не редактируем его, иначе это невыносимые лаги
+    if state.selected.is_some() {
+        return;
+    }
+
+    const GRAPH_COLORS: [Color; 7] = [
+        Color::Red,
+        Color::Green,
+        Color::Yellow,
+        Color::Blue,
+        Color::Magenta,
+        Color::Cyan,
+        Color::Gray,
+    ];
+
+    // Собираем датасеты
+    let color_iter = Rc::new(RefCell::new(GRAPH_COLORS.into_iter().cycle()));
+    let datasets = state
+        .datasets
+        .iter()
+        .enumerate()
+        .flat_map(|(i, y_datasets)| {
+            let color_iter = color_iter.clone();
+            y_datasets.iter().enumerate().map(move |(j, dataset)| {
+                Dataset::default()
+                    .name(format!("Y{}.{}", i + 1, j + 1))
+                    .marker(Marker::Braille)
+                    .graph_type(GraphType::Line)
+                    .style(Style::default().fg(color_iter.borrow_mut().next().unwrap()))
+                    .data(dataset)
+            })
+        })
+        .collect();
+
+    // Создаём виджет чарта
+    let (x_range, y_range) = state.dataset_ranges;
+    let chart = Chart::new(datasets)
+        .hidden_legend_constraints((Constraint::Ratio(1, 4), Constraint::Ratio(1, 1)))
+        .x_axis(
+            Axis::default()
+                .title(Span::styled("X", Style::default().fg(Color::Red)))
+                .style(Style::default().fg(Color::White))
+                .bounds(x_range.into())
+                .labels(
+                    [x_range.0.to_string(), x_range.1.to_string()]
+                        .iter()
+                        .cloned()
+                        .map(Span::from)
+                        .collect(),
+                ),
+        )
+        .y_axis(
+            Axis::default()
+                .title(Span::styled("Y", Style::default().fg(Color::Red)))
+                .style(Style::default().fg(Color::White))
+                .bounds(y_range.into())
+                .labels(
+                    [y_range.0.to_string(), y_range.1.to_string()]
+                        .iter()
+                        .cloned()
+                        .map(Span::from)
+                        .collect(),
+                ),
+        );
+
+    // Рендерим
+    frame.render_widget(chart, area);
 }

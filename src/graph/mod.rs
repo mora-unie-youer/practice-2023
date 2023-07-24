@@ -60,7 +60,13 @@ impl App<'_> {
 
         match event.code {
             // Выход из режима редактирования
-            KeyCode::Esc | KeyCode::Char('q') => state.selected = None,
+            KeyCode::Esc | KeyCode::Char('q') => {
+                // Выключаем режим редактирования
+                state.selected = None;
+                // Обновляем датасеты
+                state.update_datasets();
+            }
+
             // Управление графиками
             KeyCode::Char('a') => self.add_graph(),
             KeyCode::Char('d') => self.remove_graph(),
@@ -93,6 +99,8 @@ impl App<'_> {
                 state.close();
                 // Обновляем поля графиков
                 self.update_graph_field(self.graph_state().selected.unwrap());
+                // Обновляем датасеты
+                self.graph_state_mut().was_edited = true;
             }
             // Навигация в поле ввода
             KeyCode::Home => state.goto_start(),
@@ -146,6 +154,8 @@ impl App<'_> {
                 menu_state.select();
                 // Обновляем поля графиков
                 self.update_graph_field(self.graph_state().selected.unwrap());
+                // Обновляем датасеты
+                self.graph_state_mut().was_edited = true;
             }
 
             _ => (),

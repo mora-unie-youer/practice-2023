@@ -100,8 +100,11 @@ impl<'a> App<'a> {
     /// Открывает новую вкладку
     pub fn open_new_tab(&mut self) {
         // Создаём новую вкладку
-        let mut graph_state =
-            GraphState::new(self.sensor_fields.clone(), self.sensor_serials.clone());
+        let mut graph_state = GraphState::new(
+            self.database.clone(),
+            self.sensor_fields.clone(),
+            self.sensor_serials.clone(),
+        );
         graph_state.update_sensor_data();
 
         // Открываем новую вкладку
