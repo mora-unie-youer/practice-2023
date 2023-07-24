@@ -55,7 +55,7 @@ impl App<'_> {
             KeyCode::Up => state.prev_file(),
             KeyCode::Down => state.next_file(),
             KeyCode::Left => state.goto_parent_directory(),
-            KeyCode::Right => self.try_import_file(),
+            KeyCode::Right | KeyCode::Enter => self.try_import_file(),
             KeyCode::Char('I') => self.try_import_directory(),
             _ => (),
         }
@@ -72,10 +72,12 @@ impl App<'_> {
         };
 
         // Импортируем. Если имеем ошибку, переходим к следующему
-        let thread = self.import_json_file_to_database(file_path);
+        let thread = self.import_file_to_database(file_path);
 
         // Добавляем поток импорта в список для ожидания
-        self.file_picker_state_mut().import_threads.push(thread);
+        if let Some(thread) = thread {
+            self.file_picker_state_mut().import_threads.push(thread);
+        }
     }
 
     /// Пытается импортировать данные из всех файлов в данной директории
@@ -97,10 +99,12 @@ impl App<'_> {
                     let file_path = current_directory.join(filename);
 
                     // Импортируем. Если имеем ошибку, переходим к следующему
-                    let thread = self.import_json_file_to_database(file_path);
+                    let thread = self.import_file_to_database(file_path);
 
                     // Добавляем поток импорта в список для ожидания
-                    self.file_picker_state_mut().import_threads.push(thread);
+                    if let Some(thread) = thread {
+                        self.file_picker_state_mut().import_threads.push(thread);
+                    }
                 }
             }
         }
