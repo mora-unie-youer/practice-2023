@@ -15,9 +15,14 @@ pub struct InputState {
 }
 
 impl InputState {
+    /// Возвращает содержимое поля ввода
+    pub fn content(&self) -> &str {
+        &self.content
+    }
+
     /// Открывает поле ввода
     pub fn open(&mut self) {
-        self.cursor = Some(0);
+        self.cursor = Some(self.content.len());
     }
 
     /// Закрывает поле ввода
@@ -94,7 +99,7 @@ impl InputState {
         let mut end = offset + width;
 
         // Получаем положение курсора на данный момент (учитывая что оно на один больше чем длина строки)
-        let cursor = self.cursor.unwrap_or(1) - 1;
+        let cursor = self.cursor.unwrap_or(1).saturating_sub(1);
         // Сдвигаемся, пока мы не имеем выделение в правой границе
         while cursor >= end {
             end += 1;
