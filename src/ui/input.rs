@@ -157,7 +157,7 @@ impl StatefulWidget for Input {
 
         // Рендерим введённый текст
         let content = &state.content[start..end];
-        let paragraph = Paragraph::new(Text::raw(content.clone())).style(self.style);
+        let paragraph = Paragraph::new(Text::raw(content)).style(self.style);
         paragraph.render(area, buf);
 
         // Рендерим курсорчик, если поле редактируется
